@@ -48,7 +48,6 @@ Calibri everywhere. Carlito, Calibri's metric-compatible twin on Google Fonts, i
 |---|---|---|
 | Must | Venue timetable + free times | Home → venue → "ตารางเวลาว่าง" |
 | Must | Booking (up to 3 consecutive hours) | Tap free cells → จองเลย |
-| Must | Weekly recurring booking | Checkout → "จองประจำทุกสัปดาห์" (4/8/12 weeks) |
 | Must | Payment (PromptPay QR / card / TrueMoney) | Checkout → ชำระเงิน (simulated) |
 | Must | Notifications | แจ้งเตือน + push banners; "จำลองเตือนก่อนเล่น" |
 | Must | Owner booking schedule | มุมมองเจ้าของสนาม → ตารางจอง (log phone/walk-in bookings, block slots) |

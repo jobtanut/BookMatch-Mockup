@@ -130,7 +130,7 @@ const srcL=k=>SRC[k][lg()];
 const KEY='bookmatch-mock-v3';
 const fresh=()=>({lang:'th',auth:null,bookings:[],done:[],reviews:[],queue:[],notifs:[{id:1,k:'welcome',p:{},at:Date.now()-864e5,read:false}],
   blocks:{},walkins:{},released:{},firstUsed:false,friends:['bank','mild','ton'],pendingOffer:null,loc:{lat:AREAS[0].lat,lng:AREAS[0].lng,kind:'area',i:0},radius:5,
-  owner:{price:1200,qmin:15,weekly:true,boost:false}});
+  owner:{price:1200,qmin:15,boost:false}});
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.bookings){const f=fresh();return Object.assign(f,s,{owner:Object.assign(f.owner,s.owner||{})})}}catch(e){}return fresh()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
 let D=load();
@@ -361,18 +361,15 @@ function venueView(){
 /* --- checkout / pay / success --- */
 const coAmounts=()=>{const c=UI.co,v=V(c.venue),per=v.price*c.hours.length,disc=D.firstUsed?0:50;return {v,per,disc,today:per-disc}};
 function checkout(){
-  const c=UI.co,{v,per,disc,today}=coAmounts(),n=c.hours.length,wd=dayF(parse(c.date).getDay()),weeklyOK=!(v.id===OWNER_V&&!D.owner.weekly);
+  const c=UI.co,{v,per,disc,today}=coAmounts(),n=c.hours.length;
   const pms=[['promptpay','PromptPay QR',t('สแกนจ่ายผ่านแอปธนาคาร','Scan with any banking app'),'#113566','QR'],['card',t('บัตรเครดิต/เดบิต','Credit/debit card'),'Visa · Mastercard · JCB','#1C2B4A','CARD'],['truemoney','TrueMoney Wallet',t('จ่ายผ่านวอลเล็ต','Pay with your wallet'),'#E8611A','TMN']];
   const priceCard=`<div class="card"><h3 style="margin-bottom:6px">${t('สรุปยอด','Price summary')}</h3><div class="row"><span>${t('ค่าสนาม','Court fee')} ${baht(v.price)} × ${n} ${HR(n)}</span><span>${baht(per)}</span></div>
     ${disc?`<div class="row"><span>${t('ส่วนลดจองครั้งแรก','First-booking discount')}</span><span class="disc">-${baht(disc)}</span></div>`:''}
     <div class="row total"><span>${t('ชำระวันนี้','Pay today')}</span><span>${baht(today)}</span></div>
-    ${c.repeat?`<div class="row mut"><span>${t(`สัปดาห์ถัดไป (${c.repeat-1} ครั้ง)`,`Following weeks (${c.repeat-1}×)`)}</span><span>${baht(per)} /${t('สัปดาห์','week')}</span></div>`:''}
     <div class="note">${ic('shield',16)}<span>${t('ยกเลิกฟรีก่อนเวลาเล่น 24 ชม. คืนเงินเต็มจำนวน','Free cancellation up to 24 hrs before, full refund.')}</span></div>
     <button class="btn block d-only" style="margin-top:14px" data-a="toPay">${t('ชำระเงิน','Pay')} ${baht(today)}</button></div>`;
   return `${bar(t('ตรวจสอบการจอง','Review booking'))}<div class="wrap"><div class="colayout"><div>
    <div class="card"><div class="sum"><div class="thumb">${art(v)}</div><div style="min-width:0"><h3>${vName(v)}</h3><div class="mut sm-t">${court(v,c.court)} · ${vx(v,'type')}</div><div style="font-size:15px;margin-top:2px">${fmtLong(c.date)} · ${range(c.hours)}</div></div></div></div>
-   ${weeklyOK?`<div class="card"><button class="toggle" data-a="repeat" aria-pressed="${!!c.repeat}"><div><h3>${ic('repeat',16)}${t('จองประจำทุกสัปดาห์','Repeat every week')}</h3><div class="mut sm-t">${t(`ล็อกช่วงเวลานี้ทุกวัน${wd} ไม่ต้องแย่งจองใหม่`,`Hold this slot every ${wd} so you never have to fight for it`)}</div></div><span class="sw ${c.repeat?'on':''}"></span></button>
-    ${c.repeat?`<div class="weeks">${[4,8,12].map(w=>`<button class="${c.repeat===w?'on':''}" data-a="weeks" data-w="${w}">${w} ${t('สัปดาห์','weeks')}</button>`).join('')}</div><div class="note green">${ic('info',16)}<span>${t(`ชำระสัปดาห์แรกวันนี้ สัปดาห์ถัดไประบบตัดเงินอัตโนมัติก่อนวันเล่น 1 วัน รวม ${c.repeat} ครั้ง ถึง ${fmtDate(addDays(c.date,(c.repeat-1)*7))}`,`You pay for week 1 today. Later weeks are charged automatically 1 day before play, ${c.repeat} times in total, until ${fmtDate(addDays(c.date,(c.repeat-1)*7))}.`)}</span></div>`:''}</div>`:''}
    ${UI.invite.length?`<div class="card"><h3>${ic('send',16)}${t('ชวนเพื่อนจาก MatchTime','Invite friends from MatchTime')}</h3><div class="mut sm-t" style="margin-top:2px">${t(`ส่งคำชวนให้ ${fnList(UI.invite)} หลังจองเสร็จ`,`${fnList(UI.invite)} will get an invite once you book`)}</div></div>`:''}
    <div class="card"><h3>${t('วิธีชำระเงิน','Payment method')}</h3>${pms.map(([id,ti,s,col,lgo])=>`<button class="pm ${c.method===id?'on':''}" data-a="method" data-m="${id}" aria-pressed="${c.method===id}"><span class="logo" style="background:${col}">${lgo}</span><span><b>${ti}</b><br><small class="mut">${s}</small></span><span class="radio"></span></button>`).join('')}</div>
   </div><aside class="coaside">${priceCard}</aside></div></div>
@@ -396,7 +393,6 @@ function success(){
    <div class="ticket"><div class="tt"><span>${t('รหัสการจอง','Booking code')}</span><b>${b.id}</b></div><div class="tb">
     <div class="row"><span class="mut">${t('สนาม','Venue')}</span><span>${vName(v)}</span></div><div class="row"><span class="mut">${t('คอร์ท','Court')}</span><span>${court(v,b.court)}</span></div>
     <div class="row"><span class="mut">${t('วันที่','Date')}</span><span>${fmtLong(b.date)}</span></div><div class="row"><span class="mut">${t('เวลา','Time')}</span><span>${range(b.hours)}</span></div>
-    ${b.repeat?`<div class="row"><span class="mut">${t('จองประจำ','Repeats')}</span><span>${t(`ทุกสัปดาห์ × ${b.repeat}`,`Weekly × ${b.repeat}`)}</span></div>`:''}
     <div class="row total"><span>${t('ชำระแล้ว','Paid')}</span><span>${baht(b.paid)}</span></div></div></div>
    ${b.invite&&b.invite.length?`<div class="note green">${ic('send',16)}<span>${t(`ส่งคำชวนให้ ${fnList(b.invite)} แล้ว เพื่อนกดยืนยันได้จากลิงก์`,`Invites sent to ${fnList(b.invite)}. They confirm from the link.`)}</span></div>`:`<button class="btn ghost block" data-a="tab" data-t="matchtime">${ic('users',18)} ${t('ชวนเพื่อนผ่าน MatchTime','Invite friends with MatchTime')}</button>`}
    <button class="btn block" style="margin-top:10px" data-a="tab" data-t="bookings">${t('ดูการจองของฉัน','My bookings')}</button>
@@ -411,7 +407,7 @@ function bookings(){
     const q=D.queue.map(q=>{const v=V(q.venue);return `<div class="bk" style="border:1px solid #F3CF94"><div class="vrow"><div style="min-width:0"><h3>${vName(v)}</h3><div class="mut sm-t">${court(v,q.court)} · ${fmtDate(q.date)} · ${range([q.h])}</div></div><span class="badge a">${t('คิวที่','Position')} ${q.pos}</span></div>
       <div class="bk-act"><button class="btn amber sm" data-a="simCancel" data-k="${q.key}">${t('จำลอง: มีคนยกเลิก','Simulate: someone cancels')}</button><button class="btn ghost sm" data-a="leaveQ" data-k="${q.key}">${t('ออกจากคิว','Leave queue')}</button></div></div>`}).join('');
     const list=up.map(b=>{const v=V(b.venue),x=parse(b.on);return `<div class="bk"><div class="bk-top"><div class="datebox"><small>${dayS(x.getDay())}</small><b>${x.getDate()}</b><small>${monS(x.getMonth())}</small></div><div style="min-width:0"><h3>${vName(v)}</h3><div class="mut sm-t">${court(v,b.court)} · ${range(b.hours)}</div></div></div>
-      <div class="badges"><span class="badge g">${ic('check',12)} ${t('ชำระแล้ว','Paid')}</span>${b.repeat?`<span class="badge">${ic('repeat',12)} ${t(`ประจำ ครั้งที่ ${b.week}/${b.repeat}`,`Weekly ${b.week}/${b.repeat}`)}</span>`:''}${b.invite&&b.invite.length?`<span class="badge">${ic('users',12)} ${t(`เพื่อน ${b.invite.length} คน`,`${b.invite.length} friends`)}</span>`:''}<span class="badge">${b.id}</span></div>
+      <div class="badges"><span class="badge g">${ic('check',12)} ${t('ชำระแล้ว','Paid')}</span>${b.invite&&b.invite.length?`<span class="badge">${ic('users',12)} ${t(`เพื่อน ${b.invite.length} คน`,`${b.invite.length} friends`)}</span>`:''}<span class="badge">${b.id}</span></div>
       <div class="bk-act"><button class="btn ghost sm" data-a="ticket" data-id="${b.id}" data-on="${b.on}">${t('ดูตั๋วเข้าสนาม','Entry ticket')}</button><button class="btn ghost sm" data-a="cancel" data-id="${b.id}" data-on="${b.on}" style="color:var(--red)">${t('ยกเลิก','Cancel')}</button></div></div>`}).join('');
     body=`${D.queue.length?`<div class="sec-h"><h2>${ic('queue',18)}${t('MatchQueue ที่รออยู่','Waiting in MatchQueue')}</h2><span>${D.queue.length} ${t('รายการ','items')}</span></div><div class="bgrid">${q}</div>`:''}
       <div class="sec-h"><h2>${t('กำลังจะถึง','Upcoming')}</h2>${up.length?`<button class="tchip" data-a="simDone">${t('จำลอง: เล่นเสร็จแล้ว','Simulate: game played')}</button>`:''}</div>
@@ -535,7 +531,7 @@ function ownerSettings(){
     <button class="btn block" style="margin-top:14px" data-a="savePrice">${t('บันทึกราคา','Save price')}</button></div>
    <div class="card"><h3>${t('การจอง','Bookings')}</h3>
     <div class="field"><span>${t('เวลาให้คิวถัดไปยืนยัน (MatchQueue)','Time for the next in queue to confirm (MatchQueue)')}</span><div class="weeks" style="margin-top:0">${[10,15,30].map(m=>`<button class="${o.qmin===m?'on':''}" data-a="qmin" data-m="${m}">${m} ${t('นาที','min')}</button>`).join('')}</div></div>
-    <button class="toggle" data-a="oToggle" data-k="weekly" style="margin-top:16px" aria-pressed="${o.weekly}"><div><b>${t('รับจองประจำรายสัปดาห์','Accept weekly recurring bookings')}</b><div class="mut sm-t">${t('ลูกค้าล็อกช่วงเวลาเดิมได้สูงสุด 12 สัปดาห์','Customers can hold the same slot for up to 12 weeks')}</div></div><span class="sw ${o.weekly?'on':''}"></span></button></div>
+    </div>
    </div><div>
    <div class="card plan"><small>${t('แพ็กเกจปัจจุบัน','Current plan')}</small><h2 style="margin:2px 0 4px">BookMatch Pro</h2><p style="color:#D2EFDF">${t(`ทดลองใช้ฟรีถึง ${fmtDate(trialEnd)} จากนั้น ฿990/เดือน`,`Free trial until ${fmtDate(trialEnd)}, then ฿990/month`)}</p>
     <ul class="list" style="margin-top:8px"><li><span>${t('MatchQueue เติมสนามที่หลุดจอง','MatchQueue refills cancelled slots')}</span><span>${ic('check',16)}</span></li><li><span>${t('รายงานยอดจองและช่องทาง','Booking and channel reports')}</span><span>${ic('check',16)}</span></li><li><span>${t('บันทึกการจองหน้าสนามและโทร','Log walk-in and phone bookings')}</span><span>${ic('check',16)}</span></li></ul></div>
@@ -627,9 +623,7 @@ const A={
       else if(h===Math.min(...s.hours)-1||h===Math.max(...s.hours)+1){if(s.hours.length>=3)toast(t('เลือกต่อกันได้สูงสุด 3 ชม.','Up to 3 hours in a row'));else s.hours.push(h)}
       else UI.sel={court:c,hours:[h]};});
   },
-  toCheckout:()=>{if(!UI.sel)return;UI.co={venue:UI.venue,court:UI.sel.court,date:UI.date,hours:[...UI.sel.hours].sort((a,b)=>a-b),repeat:0,method:'promptpay'};go('checkout')},
-  repeat:()=>keep(()=>UI.co.repeat=UI.co.repeat?0:4),
-  weeks:d=>keep(()=>UI.co.repeat=+d.w),
+  toCheckout:()=>{if(!UI.sel)return;UI.co={venue:UI.venue,court:UI.sel.court,date:UI.date,hours:[...UI.sel.hours].sort((a,b)=>a-b),method:'promptpay'};go('checkout')},
   method:d=>keep(()=>UI.co.method=d.m),
   toPay:()=>{go('pay');if(UI.co.method==='promptpay'){let left=300;tick=setInterval(()=>{left--;const e=$('#cd');if(!e||left<=0){clearInterval(tick);tick=null;return}e.textContent=mmss(left)},1000)}},
   paid:()=>{if(tick){clearInterval(tick);tick=null}$('#paybody').innerHTML=`<div class="card" style="text-align:center;padding:40px 16px"><div class="spin"></div><h3>${t('กำลังยืนยันการชำระเงิน','Confirming payment')}</h3><p class="mut sm-t">${t('รอสักครู่','One moment')}</p></div>`;setTimeout(confirmBooking,1300)},
@@ -638,13 +632,9 @@ const A={
     openSheet(`<h2>${t('ยกเลิกการจองนี้?','Cancel this booking?')}</h2><div class="sub">${vName(v)} · ${court(v,b.court)} · ${fmtDate(d.on)} ${range(b.hours)}</div>
      <div class="note ${full?'green':'amber'}">${ic('info',16)}<span>${full?t('ยกเลิกก่อน 24 ชม. คืนเงินเต็มจำนวนภายใน 3–5 วันทำการ','More than 24 hrs before play: full refund within 3–5 working days.'):t('เหลือเวลาไม่ถึง 24 ชม. คืนเงิน 50% ตามกติกาสนาม','Less than 24 hrs before play: 50% refund under venue rules.')}</span></div>
      <div class="note">${ic('queue',16)}<span>${t('ช่วงเวลานี้จะถูกเสนอให้คนในคิว MatchQueue ทันที สนามไม่เสียรายได้','The slot goes straight to the MatchQueue, so the venue loses nothing.')}</span></div>
-     ${b.repeat?`<p class="mut sm-t" style="margin-top:10px">${t('การจองนี้เป็นแบบประจำ ยกเลิกเฉพาะครั้งนี้ ครั้งอื่นยังอยู่','This is a weekly booking. Only this week is cancelled; the others stay.')}</p>`:''}
      <button class="btn danger block" data-a="doCancel" data-id="${b.id}" data-on="${d.on}" data-full="${full?1:0}">${t('ยืนยันยกเลิก','Yes, cancel')}</button><button class="btn ghost block" data-a="closeSheet">${t('ไม่ยกเลิก','Keep booking')}</button>`)},
   doCancel:d=>{const b=D.bookings.find(x=>x.id===d.id),v=V(b.venue),per=v.price*b.hours.length,refund=d.full==='1'?per:per/2;
-    if(b.repeat&&b.repeat>1){const w=dayDiff(b.date,d.on)/7;
-      if(w===0){b.date=addDays(b.date,7);b.repeat--;if(b.repeat===1)b.repeat=0}
-      else{const rest=b.repeat-w-1;b.repeat=w===1?0:w;if(rest>0)D.bookings.push({...b,id:b.id+'-'+(w+2),date:addDays(d.on,7),repeat:rest>1?rest:0})}}
-    else D.bookings=D.bookings.filter(x=>x!==b);
+    D.bookings=D.bookings.filter(x=>x!==b);
     b.hours.forEach(h=>D.released[skey(b.venue,b.court,d.on,h)]=true);
     closeSheet();notify('cancelled',{r:refund});render()},
   simDone:()=>{const u=upcoming()[0];if(!u)return;D.done.push({id:u.id,on:u.on,venue:u.venue,court:u.court,hours:u.hours,rated:0});save();toast(t('ย้ายไปที่ "ที่ผ่านมา" แล้ว','Moved to "Past"'));keep(()=>UI.bkTab='past')},
@@ -657,7 +647,7 @@ const A={
   leaveQ:d=>{D.queue=D.queue.filter(q=>q.key!==d.k);closeSheet();toast(t('ออกจากคิวแล้ว','Left the queue'));keep(()=>{})},
   pickAlt:d=>{closeSheet();const pre={court:+d.c,hours:[+d.h]};UI.date=d.d;if(d.v===UI.venue&&UI.view==='venue')keep(()=>UI.sel=pre);else openVenue(d.v,pre)},
   simCancel:d=>{const q=D.queue.find(x=>x.key===d.k);releaseSlot(q.venue,q.court,q.date,q.h);D.pendingOffer=null;D.notifs.shift();notify('offer',{v:q.venue,c:q.court,d:q.date,h:q.h,m:D.owner.qmin});render();setTimeout(()=>offerSheet(q),400)},
-  takeOffer:d=>{const k=d.k.split('|');closeSheet();UI.co={venue:k[0],court:+k[1],date:k[2],hours:[+k[3]],repeat:0,method:'promptpay'};UI.timer=Date.now();UI.venue=k[0];go('checkout')},
+  takeOffer:d=>{const k=d.k.split('|');closeSheet();UI.co={venue:k[0],court:+k[1],date:k[2],hours:[+k[3]],method:'promptpay'};UI.timer=Date.now();UI.venue=k[0];go('checkout')},
   simRemind:()=>{const u=upcoming()[0];if(!u)return toast(t('ยังไม่มีการจอง ลองจองสนามก่อน','No bookings yet. Book a venue first.'));notify('remind',{v:u.venue,c:u.court,h:u.hours});render()},
   friend:d=>keep(()=>{const f=D.friends;D.friends=f.includes(d.f)?f.filter(x=>x!==d.f):[...f,d.f]}),
   mtCell:d=>{const team=['me',...D.friends];const ok=team.filter(p=>avail(p,d.d,+d.h));const nm=p=>p==='me'?t('คุณ (Nice)','You (Nice)'):FN(p);
@@ -684,9 +674,9 @@ const A={
   oRelease:d=>{const q=releaseSlot(OWNER_V,+d.c,d.d,+d.h);closeSheet();toast(q?t('ส่งข้อเสนอให้ Nice (คิวที่ 1) แล้ว สลับไปมุมมองผู้เล่นเพื่อดู','Offer sent to Nice (position 1). Switch to the player view to see it.'):t('ส่งข้อเสนอให้ลูกค้าคิวที่ 1 แล้ว','Offer sent to the customer in position 1'));keep(()=>{})},
   savePrice:()=>{const p=Math.round(+($('#oprice')||{}).value);if(!p||p<100)return toast(t('ใส่ราคาตั้งแต่ 100 บาทขึ้นไป','Enter a price of at least ฿100'));D.owner.price=p;applyOwner();save();toast(t(`บันทึกราคา ${baht(p)}/ชม. แล้ว แอปผู้เล่นเห็นราคาใหม่ทันที`,`Saved ${baht(p)}/hr. Players see the new price straight away.`));keep(()=>{})},
   qmin:d=>keep(()=>D.owner.qmin=+d.m),
-  oToggle:d=>keep(()=>{D.owner[d.k]=!D.owner[d.k];toast(d.k==='boost'?(D.owner.boost?t('เปิด Boost แล้ว สนามขึ้นอันดับแรกในแอปผู้เล่น','Boost on: your venue now shows first'):t('ปิด Boost แล้ว','Boost off')):(D.owner.weekly?t('เปิดรับจองประจำแล้ว','Weekly bookings on'):t('ปิดรับจองประจำแล้ว','Weekly bookings off')))}),
+  oToggle:d=>keep(()=>{D.owner[d.k]=!D.owner[d.k];toast(d.k==='boost'?(D.owner.boost?t('เปิด Boost แล้ว สนามขึ้นอันดับแรกในแอปผู้เล่น','Boost on: your venue now shows first'):t('ปิด Boost แล้ว','Boost off')):'')}),
   scope:()=>openSheet(`<h2>${t('ขอบเขตของต้นแบบ','Prototype scope')}</h2><div class="sub">${t('อ้างอิงตาราง MoSCoW ในรายงานหัวข้อ 2.5','Based on the MoSCoW table in report section 2.5')}</div><div class="card"><ul class="scope">
-    <li><b style="color:var(--brand)">Must</b><span>${t('ตารางสนามและเวลาว่าง, การจอง, จองประจำรายสัปดาห์, ชำระเงิน, แจ้งเตือน, ตารางจองของเจ้าของสนาม','Venue timetable and free times, booking, weekly recurring booking, payment, notifications, owner schedule')}</span></li>
+    <li><b style="color:var(--brand)">Must</b><span>${t('ตารางสนามและเวลาว่าง, การจอง, ชำระเงิน, แจ้งเตือน, ตารางจองของเจ้าของสนาม','Venue timetable and free times, booking, payment, notifications, owner schedule')}</span></li>
     <li><b style="color:var(--amber)">Should</b><span>MatchTime, MatchQueue, MatchPitch</span></li>
     <li><b class="mut">${t('เพิ่มเติม','Extra')}</b><span>${t('ค้นหาตามพื้นที่ด้วยหมุดบนแผนที่, รีวิวและจองซ้ำ, Boost และแพ็กเกจสนาม, ภาษาไทย/อังกฤษ','Map pin area search, reviews and rebooking, Boost and venue plans, Thai/English')}</span></li>
     <li><b class="mut">Could</b><span>${t('MatchMake, Tournament, Streak (ยังไม่ทำในต้นแบบ)','MatchMake, Tournament, Streak (not built)')}</span></li>
@@ -696,7 +686,7 @@ const A={
 function confirmBooking(){
   const c=UI.co,{per,disc}=coAmounts();
   const id='BM-'+(hash(Date.now()+'')%9000+1000)+String.fromCharCode(65+hash(c.venue)%26);
-  const b={id,venue:c.venue,court:c.court,date:c.date,hours:c.hours,repeat:c.repeat,paid:per-disc,invite:[...UI.invite],created:Date.now()};
+  const b={id,venue:c.venue,court:c.court,date:c.date,hours:c.hours,paid:per-disc,invite:[...UI.invite],created:Date.now()};
   D.bookings.push(b);D.firstUsed=true;D.queue=D.queue.filter(q=>!(q.venue===c.venue&&q.court===c.court&&q.date===c.date&&c.hours.includes(q.h)));
   c.hours.forEach(h=>delete D.released[skey(c.venue,c.court,c.date,h)]);
   UI.last={...b,elapsed:UI.timer?Math.round((Date.now()-UI.timer)/1000):null};UI.timer=null;UI.co=null;
