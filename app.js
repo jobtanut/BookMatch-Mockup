@@ -128,13 +128,21 @@ const srcL=k=>SRC[k][lg()];
 
 /* ============ state ============ */
 const KEY='bookmatch-mock-v3';
+const PTYPE={5:{th:'5 คน',en:'5-a-side'},7:{th:'7 คน',en:'7-a-side'},11:{th:'11 คน',en:'11-a-side'}};
+const DEFAULT_PITCHES=()=>[{th:'สนาม A',en:'Pitch A',type:7,price:1200},{th:'สนาม B',en:'Pitch B',type:7,price:1200},{th:'สนาม C',en:'Pitch C',type:7,price:1200}];
+const MAX_PITCHES=6;
 const fresh=()=>({lang:'th',auth:null,bookings:[],done:[],reviews:[],queue:[],notifs:[{id:1,k:'welcome',p:{},at:Date.now()-864e5,read:false}],
   blocks:{},walkins:{},released:{},firstUsed:false,friends:['bank','mild','ton'],pendingOffer:null,loc:{lat:AREAS[0].lat,lng:AREAS[0].lng,kind:'area',i:0},radius:5,
-  owner:{price:1200,qmin:15,boost:false}});
+  owner:{pitches:DEFAULT_PITCHES(),qmin:15,boost:false}});
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.bookings){const f=fresh();return Object.assign(f,s,{owner:Object.assign(f.owner,s.owner||{})})}}catch(e){}return fresh()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
 let D=load();
-const applyOwner=()=>{V(OWNER_V).price=D.owner.price||1200};applyOwner();
+function applyOwner(){const v=V(OWNER_V);let P=D.owner.pitches;if(!Array.isArray(P)||!P.length){P=D.owner.pitches=DEFAULT_PITCHES();if(D.owner.price)P.forEach(p=>p.price=D.owner.price)}delete D.owner.price;
+  v.th.courts=P.map(p=>p.th);v.en.courts=P.map(p=>p.en);v.cprice=P.map(p=>p.price);v.ctype=P.map(p=>p.type);v.price=Math.min(...v.cprice)}
+applyOwner();
+const pp=(v,c)=>v.cprice?v.cprice[c]:v.price;
+const mixedPrice=v=>v.cprice&&new Set(v.cprice).size>1;
+const priceTxt=v=>`${mixedPrice(v)?t('เริ่ม ','from '):''}${baht(v.price)}`;
 let UI={mode:D.auth==='owner'?'owner':'player',view:'home',date:nowH()>=21?addDays(TODAY,1):TODAY,sport:'all',q:'',venue:null,vtab:'time',sel:null,timer:null,co:null,invite:[],bkTab:'up',oTab:'overview',oDate:TODAY,mtSport:'football',mt:null,last:null,focus:null,rate:null};
 let hist=[];let tick=null;let MAP=null,VMAP=null,MK={};
 
@@ -244,7 +252,7 @@ function venueCard(v){
   return `<article class="vcard" role="button" tabindex="0" data-a="openVenue" data-v="${v.id}" aria-label="${esc(vName(v))}"><div class="vart">${art(v)}<span class="tag">${SPORTS[v.sport].icon} ${vx(v,'type')}</span>${boosted(v)?`<span class="tag boost">${t('แนะนำ','Featured')}</span>`:''}</div>
   <div class="vbody"><div class="vrow"><h3>${vName(v)}</h3><span class="rate">${ic('star',14)} ${v.rating}</span></div>
   <div class="meta">${ic('pin',14)} ${fmtKm(v)} ${KM()} · ${vx(v,'area')}</div>
-  <div class="vrow"><div class="price">${baht(v.price)}<small> /${HR(1)}</small></div><div class="free ${n?'':'none'}">${n?t(`ว่าง ${n} ช่วง`,`${n} slots free`):t('เต็มทั้งวัน','Fully booked')}</div></div>
+  <div class="vrow"><div class="price">${priceTxt(v)}<small> /${HR(1)}</small></div><div class="free ${n?'':'none'}">${n?t(`ว่าง ${n} ช่วง`,`${n} slots free`):t('เต็มทั้งวัน','Fully booked')}</div></div>
   ${nf.length?`<div class="times">${nf.map(h=>`<button class="tchip" data-a="quick" data-v="${v.id}" data-h="${h}">${hh(h)}</button>`).join('')}</div>`:''}</div></article>`;
 }
 function venuesInScope(){
@@ -275,7 +283,7 @@ function home(){
 function mapList(){
   const all=sortVenues(VENUES.filter(v=>UI.sport==='all'||v.sport===UI.sport));const inR=all.filter(v=>dist(v)<=D.radius),out=all.length-inR.length;
   return `<div class="sec-h" style="margin-top:12px"><h2>${t(`${inR.length} สนามในรัศมี ${D.radius} กม.`,`${inR.length} venues within ${D.radius} km`)}</h2><span>${fmtDate(UI.date)}</span></div>`+
-   (inR.map(v=>{const n=freeCount(v.id,UI.date);return `<div class="mitem ${UI.focus===v.id?'on':''}" role="button" tabindex="0" data-a="focusV" data-v="${v.id}" data-mv="${v.id}"><div class="thumb">${art(v)}</div><div class="grow"><h3>${vName(v)}</h3><div class="mut sm-t">${fmtKm(v)} ${KM()} · ${baht(v.price)}/${HR(1)}</div><span class="free ${n?'':'none'}" style="display:inline-block;margin-top:3px">${n?t(`ว่าง ${n} ช่วง`,`${n} slots free`):t('เต็ม','Full')}</span></div><button class="btn sm" data-a="openVenue" data-v="${v.id}">${t('ดูตาราง','Timetable')}</button></div>`}).join('')
+   (inR.map(v=>{const n=freeCount(v.id,UI.date);return `<div class="mitem ${UI.focus===v.id?'on':''}" role="button" tabindex="0" data-a="focusV" data-v="${v.id}" data-mv="${v.id}"><div class="thumb">${art(v)}</div><div class="grow"><h3>${vName(v)}</h3><div class="mut sm-t">${fmtKm(v)} ${KM()} · ${priceTxt(v)}/${HR(1)}</div><span class="free ${n?'':'none'}" style="display:inline-block;margin-top:3px">${n?t(`ว่าง ${n} ช่วง`,`${n} slots free`):t('เต็ม','Full')}</span></div><button class="btn sm" data-a="openVenue" data-v="${v.id}">${t('ดูตาราง','Timetable')}</button></div>`}).join('')
    ||`<div class="empty" style="padding:18px">${ic('pin',34)}<p style="margin-top:6px">${t('ยังไม่มีสนามในรัศมีนี้ ลองขยายรัศมี หรือย้ายหมุดไปใกล้ศาลายา ปิ่นเกล้า หรือบางแค','No venues in this radius yet. Widen it, or move the pin near Salaya, Pinklao or Bang Khae.')}</p></div>`)
    +(out?`<p class="mut sm-t" style="text-align:center;margin-top:6px">${t(`อีก ${out} สนามอยู่นอกรัศมี (หมุดสีเทา)`,`${out} more outside the radius (grey pins)`)}</p>`:'');
 }
@@ -329,7 +337,7 @@ function timetable(v){
     return `<button class="cell ${sel?'sel':st}" data-a="cell" data-c="${c}" data-h="${h}" aria-label="${court(v,c)} ${hh(h)} ${sel?t('ที่เลือก','selected'):(LAB[st]||t('ผ่านไปแล้ว','past'))}" ${st==='past'?'tabindex="-1"':''}>${lab}</button>`}).join('')).join('');
   return `${dateStrip(UI.date,'vdate')}
    <div class="legend"><span><i style="background:#fff;border:1px solid var(--line)"></i>${LAB.free}</span><span><i style="background:var(--brand)"></i>${t('ที่เลือก','Selected')}</span><span><i style="background:#E3E8E4"></i>${t('เต็ม (แตะเพื่อเข้าคิว)','Full (tap to queue)')}</span><span><i style="background:var(--lime)"></i>${LAB.mine}</span></div>
-   <div class="grid" style="--n:${nCourts(v)}"><div></div>${vx(v,'courts').map(c=>`<div class="gh">${c}</div>`).join('')}${cells}</div>`;
+   <div class="grid" style="--n:${nCourts(v)}"><div></div>${vx(v,'courts').map((c,i)=>`<div class="gh">${c}${v.ctype?`<small>${PTYPE[v.ctype[i]][lg()]} · ${baht(pp(v,i))}</small>`:''}</div>`).join('')}${cells}</div>`;
 }
 function reviewsOf(v){
   const mine=D.reviews.filter(r=>r.venue===v.id).map(r=>({n:t('Nice (คุณ)','Nice (you)'),s:r.stars,x:r.tags.map(i=>RTAGS[lg()][i]).join(' · ')||t('ให้คะแนนแล้ว','Rated')}));
@@ -345,27 +353,27 @@ function pitchInfo(v){
   <div class="card"><h3>${vx(v,'area')} · ${t(`ห่าง ${fmtKm(v)} กม. จาก${esc(locName())}`,`${fmtKm(v)} km from ${esc(locName())}`)}</h3><div class="minimap" id="vmap" data-lat="${v.lat}" data-lng="${v.lng}"></div></div>
   <div class="card"><div class="vrow"><h3>${t('รีวิวจากผู้เล่น','Player reviews')}</h3><span class="rate">${ic('star',14)} ${v.rating} · ${v.reviews} ${t('รีวิว','reviews')}</span></div>${reviewsOf(v).map(r=>`<div class="rev"><div class="vrow"><b style="font-size:15px">${esc(r.n)}</b><span class="stars">${'★'.repeat(r.s)}${'☆'.repeat(5-r.s)}</span></div><p class="mut sm-t">${esc(r.x)}</p></div>`).join('')}</div>`;
 }
-function selSummary(v){const s=UI.sel,n=s?s.hours.length:0;return {n,txt:n?`${court(v,s.court)} · ${fmtDate(UI.date)} · ${range(s.hours)}`:'',total:v.price*n}}
+function selSummary(v){const s=UI.sel,n=s?s.hours.length:0;return {n,txt:n?`${court(v,s.court)} · ${fmtDate(UI.date)} · ${range(s.hours)}`:'',total:(s?pp(v,s.court):v.price)*n}}
 function venueView(){
   const v=V(UI.venue);if(!v)return home();const s=selSummary(v);
   const hint=t('แตะช่อง "ว่าง" เพื่อเลือกเวลา เลือกต่อกันได้สูงสุด 3 ชม.','Tap a "Free" slot to pick a time. Up to 3 hours in a row.');
-  const panel=`<div class="card bpanel"><h3>${t('สรุปการจอง','Booking summary')}</h3>${s.n?`<div class="row"><span class="mut">${t('ช่วงเวลา','Time')}</span><span>${s.txt}</span></div><div class="row"><span class="mut">${t('ค่าสนาม','Court fee')}</span><span>${baht(v.price)} × ${s.n} ${HR(s.n)}</span></div><div class="row total"><span>${t('รวม','Total')}</span><span>${baht(s.total)}</span></div><button class="btn block" style="margin-top:12px" data-a="toCheckout">${t('จองเลย','Book now')}</button>`
+  const panel=`<div class="card bpanel"><h3>${t('สรุปการจอง','Booking summary')}</h3>${s.n?`<div class="row"><span class="mut">${t('ช่วงเวลา','Time')}</span><span>${s.txt}</span></div><div class="row"><span class="mut">${t('ค่าสนาม','Court fee')}</span><span>${baht(pp(v,UI.sel.court))} × ${s.n} ${HR(s.n)}</span></div><div class="row total"><span>${t('รวม','Total')}</span><span>${baht(s.total)}</span></div><button class="btn block" style="margin-top:12px" data-a="toCheckout">${t('จองเลย','Book now')}</button>`
      :`<p class="mut sm-t">${hint}</p>`}
      <div class="note">${ic('shield',16)}<span>${t('ยกเลิกได้ถึง 24 ชม. ก่อนเวลาเล่น หลังจากนั้นยกเลิกไม่ได้','Cancel up to 24 hrs before play. No cancellations after that.')}</span></div></div>
     <div class="card"><h3>${ic('pin',16)}${t(`${fmtKm(v)} กม. จาก${esc(locName())}`,`${fmtKm(v)} km from ${esc(locName())}`)}</h3><p class="mut sm-t">${vx(v,'area')}</p><div class="fac">${vx(v,'fac').slice(0,4).map(f=>`<span>${f}</span>`).join('')}</div></div>`;
   return `<div class="vhero-wrap"><div class="hero">${art(v,'art')}<button class="iconbtn back" data-a="back" aria-label="${t('ย้อนกลับ','Back')}">${ic('back')}</button>${langBtn('onhero')}
-   <div class="hero-t"><span class="tag">${SPORTS[v.sport].icon} ${vx(v,'type')}</span><h1>${vName(v)}</h1><div class="meta light">${ic('star',14)} ${v.rating} (${v.reviews} ${t('รีวิว','reviews')}) · ${ic('pin',14)} ${fmtKm(v)} ${KM()} · ${baht(v.price)}/${HR(1)}</div></div></div></div>
+   <div class="hero-t"><span class="tag">${SPORTS[v.sport].icon} ${vx(v,'type')}</span><h1>${vName(v)}</h1><div class="meta light">${ic('star',14)} ${v.rating} (${v.reviews} ${t('รีวิว','reviews')}) · ${ic('pin',14)} ${fmtKm(v)} ${KM()} · ${priceTxt(v)}/${HR(1)}</div></div></div></div>
    <div class="wrap"><div class="vlayout"><div><div class="seg"><button class="${UI.vtab==='time'?'on':''}" data-a="vtab" data-t="time">${t('ตารางเวลาว่าง','Free times')}</button><button class="${UI.vtab==='info'?'on':''}" data-a="vtab" data-t="info">${t('MatchPitch ข้อมูลสนาม','MatchPitch venue info')}</button></div>
    ${UI.vtab==='info'?pitchInfo(v):timetable(v)}</div><aside class="vaside">${panel}</aside></div></div>
    <div class="cta hide-d">${s.n?`<div style="min-width:0"><div class="cta-t">${s.txt}</div><div class="cta-p">${baht(s.total)} <small>${s.n} ${HR(s.n)}</small></div></div><button class="btn" data-a="toCheckout">${t('จองเลย','Book now')}</button>`
      :(UI.vtab==='info'?`<button class="btn block" data-a="vtab" data-t="time">${t('ดูตารางเวลาว่าง','See free times')}</button>`:`<div class="cta-hint">${hint}</div>`)}</div>`;
 }
 /* --- checkout / pay / success --- */
-const coAmounts=()=>{const c=UI.co,v=V(c.venue),per=v.price*c.hours.length,disc=D.firstUsed?0:50;return {v,per,disc,today:per-disc}};
+const coAmounts=()=>{const c=UI.co,v=V(c.venue),per=pp(v,c.court)*c.hours.length,disc=D.firstUsed?0:50;return {v,per,disc,today:per-disc}};
 function checkout(){
   const c=UI.co,{v,per,disc,today}=coAmounts(),n=c.hours.length;
   const pms=[['promptpay','PromptPay QR',t('สแกนจ่ายผ่านแอปธนาคาร','Scan with any banking app'),'#113566','QR'],['card',t('บัตรเครดิต/เดบิต','Credit/debit card'),'Visa · Mastercard · JCB','#1C2B4A','CARD'],['truemoney','TrueMoney Wallet',t('จ่ายผ่านวอลเล็ต','Pay with your wallet'),'#E8611A','TMN']];
-  const priceCard=`<div class="card"><h3 style="margin-bottom:6px">${t('สรุปยอด','Price summary')}</h3><div class="row"><span>${t('ค่าสนาม','Court fee')} ${baht(v.price)} × ${n} ${HR(n)}</span><span>${baht(per)}</span></div>
+  const priceCard=`<div class="card"><h3 style="margin-bottom:6px">${t('สรุปยอด','Price summary')}</h3><div class="row"><span>${t('ค่าสนาม','Court fee')} ${baht(pp(v,c.court))} × ${n} ${HR(n)}</span><span>${baht(per)}</span></div>
     ${disc?`<div class="row"><span>${t('ส่วนลดจองครั้งแรก','First-booking discount')}</span><span class="disc">-${baht(disc)}</span></div>`:''}
     <div class="row total"><span>${t('ชำระวันนี้','Pay today')}</span><span>${baht(today)}</span></div>
     ${canCancel(c.date,c.hours)?`<div class="note">${ic('shield',16)}<span>${t('ยกเลิกได้ถึง 24 ชม. ก่อนเวลาเล่น คืนเงินเต็มจำนวน หลังจากนั้นยกเลิกไม่ได้','Cancel up to 24 hrs before play for a full refund. No cancellations after that.')}</span></div>`:`<div class="note amber">${ic('lock',16)}<span>${t('การจองนี้เริ่มภายใน 24 ชม. ชำระเงินแล้วจะยกเลิกไม่ได้','This booking starts within 24 hrs, so it cannot be cancelled once paid.')}</span></div>`}
@@ -448,7 +456,7 @@ function mtVenues(){
   return `${bar(t('สนามว่างช่วงนี้','Venues free at this time'),`${fmtLong(d)} · ${hh(h)}–${hh(h+1)}`)}<div class="wrap">
    <div class="note green" style="margin-top:0">${ic('users',16)}<span>${UI.invite.length?t(`ชวน ${fnList(UI.invite)} ระบบจะส่งคำชวนหลังจองเสร็จ`,`Inviting ${fnList(UI.invite)}. Invites go out once you book.`):t('ยังไม่มีเพื่อนที่ว่างช่วงนี้ จองไว้ก่อนแล้วชวนทีหลังได้','None of your friends are free then. Book now and invite people later.')}</span></div>
    <div class="chips">${Object.keys(SPORTS).map(s=>`<button class="chip ${UI.mtSport===s?'on':''}" data-a="mtSport" data-s="${s}">${SPORTS[s].icon} ${sportL(s)}</button>`).join('')}</div>
-   <div class="bgrid" style="margin-top:12px">${list.map(({v,c})=>`<div class="bk"><div class="sum"><div class="thumb">${art(v)}</div><div style="flex:1;min-width:0"><h3>${vName(v)}</h3><div class="mut sm-t">${fmtKm(v)} ${KM()} · ${baht(v.price)}/${HR(1)}</div>${c>=0?`<span class="free" style="display:inline-block;margin-top:4px">${t('ว่าง','Free:')} ${court(v,c)}</span>`:`<span class="free none" style="display:inline-block;margin-top:4px">${t('เต็ม','Full')}</span>`}</div></div>
+   <div class="bgrid" style="margin-top:12px">${list.map(({v,c})=>`<div class="bk"><div class="sum"><div class="thumb">${art(v)}</div><div style="flex:1;min-width:0"><h3>${vName(v)}</h3><div class="mut sm-t">${fmtKm(v)} ${KM()} · ${priceTxt(v)}/${HR(1)}</div>${c>=0?`<span class="free" style="display:inline-block;margin-top:4px">${t('ว่าง','Free:')} ${court(v,c)}</span>`:`<span class="free none" style="display:inline-block;margin-top:4px">${t('เต็ม','Full')}</span>`}</div></div>
    <div class="bk-act">${c>=0?`<button class="btn sm" data-a="mtBook" data-v="${v.id}" data-c="${c}">${t('จองช่วงนี้','Book this slot')}</button>`:`<button class="btn amber sm" data-a="mtQueue" data-v="${v.id}">${t('เข้าคิว MatchQueue','Join MatchQueue')}</button>`}</div></div>`).join('')}</div></div>`;
 }
 function profile(){
@@ -478,7 +486,7 @@ function ownerStats(){
   const v=V(OWNER_V),cap=nCourts(v)*HOURS.length;
   const dayHours=d=>{let n=0;v.th.courts.forEach((_,c)=>HOURS.forEach(h=>{const o=oState(c,d,h);if(o.name)n++}));return n};
   const td=parse(TODAY);let rev=0,app=0,src={app:0,phone:0,walkin:0};
-  for(let i=1;i<=td.getDate();i++){const d=iso(new Date(td.getFullYear(),td.getMonth(),i));v.th.courts.forEach((_,c)=>HOURS.forEach(h=>{const o=oState(c,d,h);if(o.name){rev+=v.price;src[o.src]++;if(o.src==='app')app+=v.price}}))}
+  for(let i=1;i<=td.getDate();i++){const d=iso(new Date(td.getFullYear(),td.getMonth(),i));v.th.courts.forEach((_,c)=>HOURS.forEach(h=>{const o=oState(c,d,h);if(o.name){rev+=pp(v,c);src[o.src]++;if(o.src==='app')app+=pp(v,c)}}))}
   const week=Array.from({length:7},(_,i)=>{const d=addDays(TODAY,i-6);return {d,n:dayHours(d)}});
   return {cap,today:dayHours(TODAY),rev,app,src,week};
 }
@@ -527,10 +535,15 @@ function ownerSettings(){
   const v=V(OWNER_V),o=D.owner,s=ownerStats();
   const trialEnd=addDays(TODAY,74);
   return ownerShell(`<div class="ocols"><div>
-   <div class="card"><h3>${t('ข้อมูลสนาม','Venue details')}</h3>
-    <label class="field"><span>${t('ราคาต่อชั่วโมงต่อสนาม (บาท)','Price per pitch per hour (THB)')}</span><input id="oprice" type="number" min="100" step="50" value="${v.price}" inputmode="numeric"></label>
-    <div class="two"><label class="field"><span>${t('เวลาเปิด','Opens')}</span><input value="10:00" disabled></label><label class="field"><span>${t('เวลาปิด','Closes')}</span><input value="23:00" disabled></label></div>
-    <button class="btn block" style="margin-top:14px" data-a="savePrice">${t('บันทึกราคา','Save price')}</button></div>
+   <div class="card"><div class="vrow"><h3>${t('สนามในศูนย์ของคุณ','Your pitches')} (${D.owner.pitches.length})</h3><span class="mut sm-t">${t(`สูงสุด ${MAX_PITCHES} สนาม`,`Up to ${MAX_PITCHES}`)}</span></div>
+    <p class="mut sm-t" style="margin:4px 0">${t('ตั้งชื่อ ประเภท และราคาต่อชั่วโมงของแต่ละสนาม ผู้เล่นเห็นการเปลี่ยนแปลงทันทีหลังบันทึก','Set each pitch’s name, type and hourly price. Players see changes as soon as you save.')}</p>
+    <div class="phead"><span>${t('ชื่อสนาม','Name')}</span><span>${t('ประเภท','Type')}</span><span>${t('ราคา/ชม.','Price/hr')}</span><span></span></div>
+    ${D.owner.pitches.map((p,i)=>`<div class="prow"><input class="pname" value="${esc(EN()?p.en:p.th)}" aria-label="${t('ชื่อสนาม','Pitch name')} ${i+1}" maxlength="24">
+      <select class="ptype" aria-label="${t('ประเภท','Type')}">${[5,7,11].map(x=>`<option value="${x}" ${p.type===x?'selected':''}>${PTYPE[x][lg()]}</option>`).join('')}</select>
+      <input class="pprice" type="number" min="100" step="50" inputmode="numeric" value="${p.price}" aria-label="${t('ราคาต่อชั่วโมง','Price per hour')}">
+      <button class="iconbtn pdel" data-a="delPitch" data-i="${i}" aria-label="${t('ลบสนาม','Remove pitch')}" ${D.owner.pitches.length<=1?'disabled':''}>${ic('x',18)}</button></div>`).join('')}
+    <div class="two" style="margin-top:12px"><button class="btn ghost block" data-a="addPitch" ${D.owner.pitches.length>=MAX_PITCHES?'disabled':''}>${ic('plus',16)} ${t('เพิ่มสนาม','Add pitch')}</button><button class="btn block" data-a="savePitches">${t('บันทึกสนาม','Save pitches')}</button></div>
+    <div class="two"><label class="field"><span>${t('เวลาเปิด','Opens')}</span><input value="10:00" disabled></label><label class="field"><span>${t('เวลาปิด','Closes')}</span><input value="23:00" disabled></label></div></div>
    <div class="card"><h3>${t('การจอง','Bookings')}</h3>
     <div class="field"><span>${t('เวลาให้คิวถัดไปยืนยัน (MatchQueue)','Time for the next in queue to confirm (MatchQueue)')}</span><div class="weeks" style="margin-top:0">${[10,15,30].map(m=>`<button class="${o.qmin===m?'on':''}" data-a="qmin" data-m="${m}">${m} ${t('นาที','min')}</button>`).join('')}</div></div>
     </div>
@@ -573,7 +586,7 @@ function queueSheet(v,c,d,h){
     <p style="margin-top:6px;color:var(--ink)">${me?t(`คุณอยู่คิวที่ <b>${me.pos}</b>`,`You are <b>number ${me.pos}</b> in the queue`):t(`ตอนนี้มี <b>${ahead}</b> คนรออยู่ คุณจะได้คิวที่ <b>${ahead+1}</b>`,`<b>${ahead}</b> waiting now, so you would be <b>number ${ahead+1}</b>`)}</p>
     ${me?`<button class="btn ghost block" data-a="leaveQ" data-k="${k}">${t('ออกจากคิว','Leave queue')}</button>`:`<button class="btn amber block" data-a="joinQ" data-v="${v}" data-c="${c}" data-d="${d}" data-h="${h}">${t('เข้าคิว MatchQueue','Join MatchQueue')}</button>`}</div>
    ${alts.length?`<h3 style="margin-top:16px">${t('เวลาใกล้เคียงที่ยังว่าง','Nearby times still free')}</h3><div class="alts">${alts.slice(0,4).map(a=>`<button class="alt" data-a="pickAlt" data-v="${a.v}" data-c="${a.c}" data-d="${a.d}" data-h="${a.h}"><b>${hh(a.h)}–${hh(a.h+1)}</b>${court(x,a.c)}</button>`).join('')}</div>`:''}
-   ${others.length?`<h3 style="margin-top:16px">${t('สนามอื่นใกล้คุณที่ว่างเวลานี้','Other venues nearby free at this time')}</h3><div class="alts">${others.map(z=>`<button class="alt" data-a="pickAlt" data-v="${z.o.id}" data-c="${z.c}" data-d="${d}" data-h="${h}"><b>${vName(z.o)}</b>${fmtKm(z.o)} ${KM()} · ${baht(z.o.price)}/${HR(1)}</button>`).join('')}</div>`:''}`);
+   ${others.length?`<h3 style="margin-top:16px">${t('สนามอื่นใกล้คุณที่ว่างเวลานี้','Other venues nearby free at this time')}</h3><div class="alts">${others.map(z=>`<button class="alt" data-a="pickAlt" data-v="${z.o.id}" data-c="${z.c}" data-d="${d}" data-h="${h}"><b>${vName(z.o)}</b>${fmtKm(z.o)} ${KM()} · ${priceTxt(z.o)}/${HR(1)}</button>`).join('')}</div>`:''}`);
 }
 function offerSheet(q){
   const v=V(q.venue);let left=D.owner.qmin*60;
@@ -594,6 +607,15 @@ function rateSheet(){const r=UI.rate,p=D.done.find(x=>x.id===r.id&&x.on===r.on),
    <div class="starpick">${[1,2,3,4,5].map(s=>`<button class="${s<=r.stars?'on':''}" data-a="star" data-s="${s}" aria-label="${s} ${t('ดาว','stars')}">★</button>`).join('')}</div>
    <div class="tagpick">${RTAGS[lg()].map((x,i)=>`<button class="chip ${r.tags.includes(i)?'on':''}" data-a="rtag" data-i="${i}">${x}</button>`).join('')}</div>
    <button class="btn block" style="margin-top:16px" data-a="sendRate">${t('ส่งรีวิว','Submit review')}</button>`)}
+function readPitches(quiet){const rows=[...document.querySelectorAll('.prow')];let ok=true;
+  rows.forEach((r,i)=>{const p=D.owner.pitches[i];if(!p)return;const name=r.querySelector('.pname').value.trim(),price=Math.round(+r.querySelector('.pprice').value);
+    if(name&&name!==(EN()?p.en:p.th)){p.th=name;p.en=name}
+    p.type=+r.querySelector('.ptype').value;if(!price||price<100)ok=false;else p.price=price});
+  if(!ok&&!quiet)toast(t('ใส่ราคาตั้งแต่ 100 บาทขึ้นไปทุกสนาม','Every pitch needs a price of at least ฿100'));return ok||quiet}
+function removeCourt(i){const fix=obj=>{const out={};Object.entries(obj).forEach(([k,val])=>{const[v,c,d,h]=k.split('|');if(v!==OWNER_V){out[k]=val;return}const ci=+c;if(ci===i)return;out[skey(v,ci>i?ci-1:ci,d,h)]=val});return out};
+  D.walkins=fix(D.walkins);D.blocks=fix(D.blocks);D.released=fix(D.released);
+  const shift=o=>{if(o&&o.venue===OWNER_V&&o.court>i){o.court--;if(o.key){const p=o.key.split('|');o.key=skey(p[0],o.court,p[2],p[3])}}};
+  D.bookings.forEach(shift);D.queue.forEach(shift);D.done=D.done.filter(x=>!(x.venue===OWNER_V&&x.court===i));D.done.forEach(shift);if(D.pendingOffer&&D.pendingOffer.venue===OWNER_V)D.pendingOffer=null}
 const A={
   lang:()=>{D.lang=EN()?'th':'en';save();if($('#layer').innerHTML)closeSheet();keep(()=>{})},
   login:d=>{D.auth=d.r;UI.mode=d.r;UI.view='home';UI.oTab='overview';hist=[];render();scrollTo(0,0)},
@@ -668,13 +690,19 @@ const A={
       <div class="two"><button class="btn block" data-a="walkin" data-k="${k}" data-src="phone">${ic('plus',16)} ${t('บันทึกโทรจอง','Log phone booking')}</button><button class="btn ghost block" data-a="walkin" data-k="${k}" data-src="walkin">${ic('plus',16)} ${t('จองหน้าสนาม','Log walk-in')}</button></div>
       <button class="btn dark block" data-a="block" data-k="${k}">${t('ปิดช่วงนี้เพื่อซ่อมบำรุง','Close for maintenance')}</button><p class="mut" style="font-size:13px;margin-top:8px">${t('ช่วงที่บันทึกหรือปิดไว้จะแสดงเป็น "เต็ม" ในแอปผู้เล่นทันที กันจองชน','Logged or closed slots show as "Full" in the player app straight away, so nobody double-books.')}</p>`);
     else if(o.s==='blocked')openSheet(`<h2>${t('ช่วงนี้ปิดอยู่','This slot is closed')}</h2><div class="sub">${sub}</div><button class="btn block" data-a="unblock" data-k="${k}">${t('เปิดให้จองอีกครั้ง','Reopen for booking')}</button>`);
-    else openSheet(`<h2>${esc(o.name)}</h2><div class="sub">${sub}</div><div class="card"><div class="row"><span class="mut">${t('ช่องทาง','Channel')}</span><span>${srcL(o.src)}</span></div><div class="row"><span class="mut">${t('เบอร์โทร','Phone')}</span><span>08X-XXX-${String(hash(k)%9000+1000)}</span></div><div class="row"><span class="mut">${t('การชำระเงิน','Payment')}</span><span>${o.paid?t('ชำระผ่านแอปแล้ว ','Paid in app ')+baht(v.price):t('จ่ายที่สนาม','Pays at the venue')}</span></div></div>
+    else openSheet(`<h2>${esc(o.name)}</h2><div class="sub">${sub}</div><div class="card"><div class="row"><span class="mut">${t('ช่องทาง','Channel')}</span><span>${srcL(o.src)}</span></div><div class="row"><span class="mut">${t('เบอร์โทร','Phone')}</span><span>08X-XXX-${String(hash(k)%9000+1000)}</span></div><div class="row"><span class="mut">${t('การชำระเงิน','Payment')}</span><span>${o.paid?t('ชำระผ่านแอปแล้ว ','Paid in app ')+baht(pp(v,c)):t('จ่ายที่สนาม','Pays at the venue')}</span></div></div>
       ${o.name==='Nice'?`<p class="mut sm-t">${t('การจองนี้มาจากมุมมองผู้เล่นของคุณ','This booking came from your player view')}</p>`:`<button class="btn ghost block" data-a="oRelease" data-c="${c}" data-d="${dd}" data-h="${h}" style="color:var(--red)">${t('ลูกค้ายกเลิก ส่งต่อให้คิว MatchQueue','Customer cancelled: pass to MatchQueue')}</button>`}`)},
   walkin:d=>{const n=(($('#wname')||{}).value||'').trim()||t('ลูกค้า','Customer');D.walkins[d.k]={name:n,src:d.src};delete D.released[d.k];closeSheet();toast(t('บันทึกการจองแล้ว','Booking logged'));keep(()=>{})},
   block:d=>{D.blocks[d.k]=true;closeSheet();toast(t('ปิดช่วงเวลานี้แล้ว','Slot closed'));keep(()=>{})},
   unblock:d=>{delete D.blocks[d.k];closeSheet();toast(t('เปิดให้จองแล้ว','Slot reopened'));keep(()=>{})},
   oRelease:d=>{const q=releaseSlot(OWNER_V,+d.c,d.d,+d.h);closeSheet();toast(q?t('ส่งข้อเสนอให้ Nice (คิวที่ 1) แล้ว สลับไปมุมมองผู้เล่นเพื่อดู','Offer sent to Nice (position 1). Switch to the player view to see it.'):t('ส่งข้อเสนอให้ลูกค้าคิวที่ 1 แล้ว','Offer sent to the customer in position 1'));keep(()=>{})},
-  savePrice:()=>{const p=Math.round(+($('#oprice')||{}).value);if(!p||p<100)return toast(t('ใส่ราคาตั้งแต่ 100 บาทขึ้นไป','Enter a price of at least ฿100'));D.owner.price=p;applyOwner();save();toast(t(`บันทึกราคา ${baht(p)}/ชม. แล้ว แอปผู้เล่นเห็นราคาใหม่ทันที`,`Saved ${baht(p)}/hr. Players see the new price straight away.`));keep(()=>{})},
+  addPitch:()=>{if(!readPitches(true))return;const P=D.owner.pitches;if(P.length>=MAX_PITCHES)return;const L='ABCDEFGHIJ'[P.length];P.push({th:'สนาม '+L,en:'Pitch '+L,type:7,price:P[P.length-1].price});keep(()=>{})},
+  delPitch:d=>{readPitches(true);const i=+d.i,P=D.owner.pitches;if(P.length<=1)return;
+    const used=D.bookings.some(b=>b.venue===OWNER_V&&b.court===i)||D.queue.some(q=>q.venue===OWNER_V&&q.court===i);
+    if(used)return toast(t('สนามนี้มีการจองหรือคิวในแอปอยู่ ลบได้หลังเล่นเสร็จหรือยกเลิก','This pitch has app bookings or a queue. Remove it once they are played or cancelled.'));
+    openSheet(`<h2>${t('ลบสนามนี้?','Remove this pitch?')}</h2><div class="sub">${esc(EN()?P[i].en:P[i].th)}</div><div class="note amber">${ic('info',16)}<span>${t('การจองหน้าสนาม การจองทางโทรศัพท์ และช่วงที่ปิดซ่อมของสนามนี้จะถูกลบด้วย','Walk-in and phone bookings and maintenance blocks on this pitch are removed too.')}</span></div><button class="btn danger block" data-a="doDelPitch" data-i="${i}">${t('ลบสนาม','Remove pitch')}</button><button class="btn ghost block" data-a="closeSheet">${t('ยกเลิก','Cancel')}</button>`)},
+  doDelPitch:d=>{const i=+d.i;removeCourt(i);D.owner.pitches.splice(i,1);applyOwner();UI.sel=null;save();closeSheet();toast(t('ลบสนามแล้ว','Pitch removed'));keep(()=>{})},
+  savePitches:()=>{if(!readPitches())return;applyOwner();UI.sel=null;save();toast(t(`บันทึก ${D.owner.pitches.length} สนามแล้ว แอปผู้เล่นเห็นทันที`,`Saved ${D.owner.pitches.length} pitches. Players see them straight away.`));keep(()=>{})},
   qmin:d=>keep(()=>D.owner.qmin=+d.m),
   oToggle:d=>keep(()=>{D.owner[d.k]=!D.owner[d.k];toast(d.k==='boost'?(D.owner.boost?t('เปิด Boost แล้ว สนามขึ้นอันดับแรกในแอปผู้เล่น','Boost on: your venue now shows first'):t('ปิด Boost แล้ว','Boost off')):'')}),
   scope:()=>openSheet(`<h2>${t('ขอบเขตของต้นแบบ','Prototype scope')}</h2><div class="sub">${t('อ้างอิงตาราง MoSCoW ในรายงานหัวข้อ 2.5','Based on the MoSCoW table in report section 2.5')}</div><div class="card"><ul class="scope">

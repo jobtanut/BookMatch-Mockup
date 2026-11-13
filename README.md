@@ -48,6 +48,7 @@ Calibri everywhere. Carlito, Calibri's metric-compatible twin on Google Fonts, i
 |---|---|---|
 | Must | Venue timetable + free times | Home → venue → "ตารางเวลาว่าง" |
 | Must | Booking (up to 3 consecutive hours) | Tap free cells → จองเลย |
+| Must | Cancellation rule | Cancel up to 24 hrs before play for a full refund; inside 24 hrs the booking is locked |
 | Must | Payment (PromptPay QR / card / TrueMoney) | Checkout → ชำระเงิน (simulated) |
 | Must | Notifications | แจ้งเตือน + push banners; "จำลองเตือนก่อนเล่น" |
 | Must | Owner booking schedule | มุมมองเจ้าของสนาม → ตารางจอง (log phone/walk-in bookings, block slots) |
@@ -57,7 +58,8 @@ Calibri everywhere. Carlito, Calibri's metric-compatible twin on Google Fonts, i
 | Extra | Area search with map pin | แผนที่ tab: type an area, tap the map or drag the pin, radius 1–20 km, sport filter, current location |
 | Extra | Thai / English | TH/EN toggle on every main page; dates, venue details, notifications and reviews all switch |
 | Extra | Login, history, reviews, rebook | Login screen; การจอง → ที่ผ่านมา → ให้คะแนน / จองอีกครั้ง |
-| Extra | Owner settings and revenue model | ตั้งค่าและแพ็กเกจ: price per hour (updates the player side), Pro plan ฿990/month after a free trial, Boost ฿300/month, 7% commission in the payout |
+| Extra | Pitch management | Owner → ตั้งค่าและแพ็กเกจ: add (up to 6), rename and remove pitches, each with its own type (5/7/11-a-side) and hourly price; the player timetable, prices and checkout follow |
+| Extra | Owner settings and revenue model | ตั้งค่าและแพ็กเกจ: Pro plan ฿990/month after a free trial, Boost ฿300/month, 7% commission in the payout |
 | Could / Won't | MatchMake, Tournament, Streak, MatchAnalysis | Not built |
 
 ## Usability test (report 5.5)

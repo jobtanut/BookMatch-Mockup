@@ -442,3 +442,18 @@ small{font-size:13px}
 .langbtn.dark{background:rgba(255,255,255,.1);color:#fff;box-shadow:none}
 .langbtn.dark .ic{color:var(--lime)}
 .langbtn.dark:hover{background:rgba(255,255,255,.18)}
+
+/* ===== pitch manager (owner) ===== */
+.gh small{display:block;font-size:11px;font-weight:400;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phead{display:none}
+.prow{display:grid;grid-template-columns:1fr 1fr 42px;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.prow .pname{grid-column:1/-1}
+.prow input,.prow select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;font-size:15px;background:var(--card);outline:0;min-width:0}
+.prow input:focus,.prow select:focus{border-color:var(--brand)}
+.prow .pdel{width:42px;height:42px;color:var(--red);box-shadow:none;border:1px solid var(--line)}
+.prow .pdel[disabled]{opacity:.35}
+@media (min-width:640px){
+  .phead{display:grid;grid-template-columns:minmax(0,1.4fr) 120px 120px 42px;gap:8px;font-size:13px;color:var(--mut);margin-top:10px}
+  .prow{grid-template-columns:minmax(0,1.4fr) 120px 120px 42px}
+  .prow .pname{grid-column:auto}
+}
