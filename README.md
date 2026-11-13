@@ -1,8 +1,15 @@
 # BookMatch mock-up (ITDS294)
 
-This is a clickable, responsive web-app prototype for report section 5. It's a single file, `index.html`, built with static HTML/CSS/JS and no build step. Data is saved in localStorage. All venues, customers, map positions and payments are made up, and no money is ever charged. It needs an internet connection for the map, which loads Leaflet from cdnjs and Esri tiles, and for the Carlito font.
+This is a clickable, responsive web-app prototype for report section 5, in Thai and English. It's static HTML/CSS/JS with no build step:
 
-Open `index.html` in a browser. Any login button gets you in.
+| File | What it holds |
+|---|---|
+| `index.html` | Page shell; loads the font, Leaflet, `styles.css` and `app.js` |
+| `styles.css` | Palette tokens, layout for phone/tablet/PC, every component |
+| `app.js` | Mock data, Thai/English text, booking logic, map, player and owner screens |
+ Data is saved in localStorage. All venues, customers, map positions and payments are made up, and no money is ever charged. It needs an internet connection for the map, which loads Leaflet from cdnjs and Esri tiles, and for the Carlito font.
+
+Open `index.html` in a browser (keep the three files together). Any login button gets you in. The TH/EN button at the top of each page (or Profile → Language) switches language, and the choice is remembered.
 
 ## Layouts
 
@@ -49,6 +56,7 @@ Calibri everywhere. Carlito, Calibri's metric-compatible twin on Google Fonts, i
 | Should | MatchQueue | Tap a full cell → เข้าคิว; การจอง → "จำลอง: มีคนยกเลิก" → offer with countdown (owner sets 10/15/30 min) |
 | Should | MatchPitch | Venue → "MatchPitch ข้อมูลสนาม" (layout, facilities, mini map, reviews) |
 | Extra | Area search with map pin | แผนที่ tab: type an area, tap the map or drag the pin, radius 1–20 km, sport filter, current location |
+| Extra | Thai / English | TH/EN toggle on every main page; dates, venue details, notifications and reviews all switch |
 | Extra | Login, history, reviews, rebook | Login screen; การจอง → ที่ผ่านมา → ให้คะแนน / จองอีกครั้ง |
 | Extra | Owner settings and revenue model | ตั้งค่าและแพ็กเกจ: price per hour (updates the player side), Pro plan ฿990/month after a free trial, Boost ฿300/month, 7% commission in the payout |
 | Could / Won't | MatchMake, Tournament, Streak, MatchAnalysis | Not built |
