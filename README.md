@@ -7,7 +7,7 @@ This is a clickable, responsive web-app prototype for report section 5, in Thai 
 | `index.html` | Page shell; loads the font, Leaflet, `styles.css` and `app.js` |
 | `styles.css` | Palette tokens, layout for phone/tablet/PC, every component |
 | `app.js` | Mock data, Thai/English text, booking logic, map, player and owner screens |
- Data is saved in localStorage. All venues, customers, map positions and payments are made up, and no money is ever charged. It needs an internet connection for the map, which loads Leaflet from cdnjs and Esri tiles, and for the Carlito font.
+ Data is saved in localStorage. All venues, customers, map positions and payments are made up, and no money is ever charged. It needs an internet connection for the map, which loads Leaflet from cdnjs and Esri tiles, and for the Prompt font.
 
 Open `index.html` in a browser (keep the three files together). Any login button gets you in. The TH/EN button at the top of each page (or Profile → Language) switches language, and the choice is remembered.
 
@@ -21,7 +21,7 @@ Open `index.html` in a browser (keep the three files together). Any login button
 
 ## Font
 
-Calibri everywhere. Carlito, Calibri's metric-compatible twin on Google Fonts, is the fallback on machines without Calibri. Calibri has no Thai glyphs, so Thai text falls back to Leelawadee UI on Windows (the font Windows pairs with Calibri), Thonburi on Mac, or Noto Sans Thai.
+Prompt everywhere, for Thai and English alike, loaded from Google Fonts (weights 300–700). Prompt covers both scripts, so every device shows the same font.
 
 ## Palette
 

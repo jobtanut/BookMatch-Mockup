@@ -4,7 +4,7 @@
   --ink:#10201A;--mut:#5F6F66;--line:#E2E8E3;--bg:#F1F4F1;--card:#FFFFFF;--soft:#F6F8F6;
   --amber:#E89A2C;--amber-l:#FDF1DD;--amber-d:#7C4E0E;--red:#C9473F;--red-l:#FBE7E5;--blue:#2F6FD1;--blue-l:#E4EDFB;
   --r:18px;--sh:0 1px 2px rgba(16,32,26,.06),0 4px 16px rgba(16,32,26,.06);
-  --font:Calibri,Carlito,'Leelawadee UI',Leelawadee,Thonburi,'Noto Sans Thai',sans-serif;
+  --font:'Prompt',system-ui,sans-serif;
   --rail:0px;--gut:16px;
 }
 @media (min-width:768px){:root{--rail:92px;--gut:28px}}
