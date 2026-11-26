@@ -1,4 +1,7 @@
 /* BookMatch mock-up · app logic (Thai / English) */
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import './styles.css';
 
 /* ============ i18n + helpers ============ */
 const $=s=>document.querySelector(s);
@@ -343,7 +346,7 @@ function initMap(){
   const el=$('#map');if(!el)return;
   if(matchMedia('(max-width:1099px)').matches){const slot=$('#mapbox-m'),box=$('#mapbox');if(slot&&box){slot.parentNode.insertBefore(box,slot);slot.remove()}}
   else{const slot=$('#mapbox-m');if(slot)slot.remove()}
-  if(!window.L){el.innerHTML=`<div class="mapfail">${t('โหลดแผนที่ไม่ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต<br>ยังเลือกพื้นที่จากช่องค้นหาด้านบนได้','The map could not load. Check your internet connection.<br>You can still pick an area from the search box above.')}</div>`;return}
+  if(!L){el.innerHTML=`<div class="mapfail">${t('โหลดแผนที่ไม่ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต<br>ยังเลือกพื้นที่จากช่องค้นหาด้านบนได้','The map could not load. Check your internet connection.<br>You can still pick an area from the search box above.')}</div>`;return}
   MAP=L.map(el,{zoomControl:true,scrollWheelZoom:true}).setView([D.loc.lat,D.loc.lng],13);
   L.tileLayer(TILES,{attribution:'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',maxZoom:19}).addTo(MAP);
   MK.circle=L.circle([D.loc.lat,D.loc.lng],{radius:D.radius*1000,color:'#0B7A4B',weight:1.5,fillColor:'#0B7A4B',fillOpacity:.08}).addTo(MAP);
@@ -670,7 +673,7 @@ function render(){
     app.innerHTML=`${sidenav()}<main class="main">${VIEWS[UI.view]()}</main>${TABS.includes(UI.view)?tabbar():''}${cookieBar()}`;
     if(UI.view==='notifs'){D.notifs.forEach(n=>n.read=true)}
     if(UI.view==='map')initMap();
-    const vm=$('#vmap');if(vm&&window.L){VMAP=L.map(vm,{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,attributionControl:false}).setView([+vm.dataset.lat,+vm.dataset.lng],15);L.tileLayer(TILES).addTo(VMAP);L.marker([+vm.dataset.lat,+vm.dataset.lng],{icon:L.divIcon({className:'apin',html:PINSVG,iconSize:[36,46],iconAnchor:[18,45]})}).addTo(VMAP)}}
+    const vm=$('#vmap');if(vm&&L){VMAP=L.map(vm,{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,attributionControl:false}).setView([+vm.dataset.lat,+vm.dataset.lng],15);L.tileLayer(TILES).addTo(VMAP);L.marker([+vm.dataset.lat,+vm.dataset.lng],{icon:L.divIcon({className:'apin',html:PINSVG,iconSize:[36,46],iconAnchor:[18,45]})}).addTo(VMAP)}}
   save();
 }
 function go(view,p={}){hist.push({view:UI.view,y:scrollY});Object.assign(UI,p);UI.view=view;render();scrollTo(0,0)}
