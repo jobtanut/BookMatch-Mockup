@@ -57,6 +57,10 @@ gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1
 target:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/>',
 logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h11"/>',
 phone:'<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
+flame:'<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.4 2.4-5.4 3.6-8.3.4 1.9 1.3 3 2.5 3.6C12 7.4 13 4.9 15.2 3c-.3 2.6.6 4.4 2 6.2 1.1 1.5 1.8 3 1.8 4.9C19 18.2 16 21 12 21z"/><path d="M12 21c-1.6 0-2.8-1.2-2.8-2.8 0-1.7 1.4-2.6 2.1-4 .6 1.2 1.4 1.6 2.2 2.1.8.6 1.3 1.2 1.3 2.1 0 1.5-1.2 2.6-2.8 2.6z"/>',
+shirt:'<path d="M8.5 3.5L4 6l-1.5 4.5 3 1.2V20.5h13V11.7l3-1.2L20 6l-4.5-2.5c-.6 1.6-2 2.5-3.5 2.5s-2.9-.9-3.5-2.5z"/>',
+cookie:'<path d="M20.5 12.5A8.5 8.5 0 1 1 11.5 3.5a3 3 0 0 0 3.5 3.5 3 3 0 0 0 3.5 3.5 2.4 2.4 0 0 0 2 2z"/><circle cx="9" cy="10" r="1"/><circle cx="14.5" cy="15" r="1"/><circle cx="9" cy="15.5" r="1"/>',
+ball:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5l3.6 2.6-1.4 4.2H9.8l-1.4-4.2z"/><path d="M12 3.5v4M15.6 10.1l4.2-1.2M14.2 14.3l2.4 3.6M9.8 14.3l-2.4 3.6M8.4 10.1L4.2 8.9"/>',
 globe:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.3 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.3-3.5-8.5s1-6 3.5-8.5z"/>',
 };
 const ic=(n,s=20)=>`<svg class="ic" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
@@ -133,7 +137,8 @@ const DEFAULT_PITCHES=()=>[{th:'สนาม A',en:'Pitch A',type:7,price:1200},
 const MAX_PITCHES=6;
 const fresh=()=>({lang:'th',auth:null,bookings:[],done:[],reviews:[],queue:[],notifs:[{id:1,k:'welcome',p:{},at:Date.now()-864e5,read:false}],
   blocks:{},walkins:{},released:{},firstUsed:false,friends:['bank','mild','ton'],pendingOffer:null,loc:{lat:AREAS[0].lat,lng:AREAS[0].lng,kind:'area',i:0},radius:5,
-  owner:{pitches:DEFAULT_PITCHES(),qmin:15,boost:false}});
+  owner:{pitches:DEFAULT_PITCHES(),qmin:15,boost:false,daymatch:true},
+  joined:[],cookie:null,club:null,clubCredited:false,jerseyOrdered:null});
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&s.bookings){const f=fresh();return Object.assign(f,s,{owner:Object.assign(f.owner,s.owner||{})})}}catch(e){}return fresh()}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}}
 let D=load();
@@ -143,7 +148,33 @@ applyOwner();
 const pp=(v,c)=>v.cprice?v.cprice[c]:v.price;
 const mixedPrice=v=>v.cprice&&new Set(v.cprice).size>1;
 const priceTxt=v=>`${mixedPrice(v)?t('เริ่ม ','from '):''}${baht(v.price)}`;
-let UI={mode:D.auth==='owner'?'owner':'player',view:'home',date:nowH()>=21?addDays(TODAY,1):TODAY,sport:'all',q:'',venue:null,vtab:'time',sel:null,timer:null,co:null,invite:[],bkTab:'up',oTab:'overview',oDate:TODAY,mtSport:'football',mt:null,last:null,focus:null,rate:null};
+/* DayMatch: owner-set 20% off daytime slots (start before 16:00), report section 3.6 campaign 4 */
+const DM_END=16,DM_OFF=0.2;
+const dmOn=v=>v.id===OWNER_V&&D.owner.daymatch;
+const isDM=(v,h)=>dmOn(v)&&h<DM_END;
+const priceAt=(v,c,h)=>Math.round(pp(v,c)*(isDM(v,h)?1-DM_OFF:1));
+const sumPrice=(v,c,hours)=>hours.reduce((a,h)=>a+priceAt(v,c,h),0);
+/* Affiliate clubs (campaign 3) */
+const CLUBS={ICTFC:{th:'ชมรมฟุตบอล ICT',en:'ICT Football Club'},MUFC:{th:'ชมรมฟุตบอล ม.มหิดล',en:'MU Football Club'},MUBAD:{th:'ชมรมแบดมินตัน ม.มหิดล',en:'MU Badminton Club'},ENGFC:{th:'ชมรมฟุตบอลวิศวะ',en:'Engineering Football Club'}};
+const clubName=c=>CLUBS[c]?CLUBS[c][lg()]:t(`ชมรม ${c}`,`Club ${c}`);
+/* MatchMake (open games) */
+const LEVEL={1:{th:'มือใหม่',en:'Beginner'},2:{th:'เล่นสนุก',en:'Casual'},3:{th:'จริงจัง',en:'Competitive'}};
+const NEED={football:14,futsal:10,badminton:4,basketball:10};
+const perHead=(v,c,h,n)=>Math.ceil(priceAt(v,c,h)/n/5)*5;
+function openGames(){const ds=days7(),out=[];
+  VENUES.forEach(v=>{for(let k=0;k<2;k++){const seed=v.id+k,d=ds[Math.min(6,hash(seed)%6+k)],h=[17,18,19,20,12,16][hash(seed+'h')%6];
+    if(d===TODAY&&h<=nowH()+1)continue;const N=NEED[v.sport],c=hash(seed+'c')%nCourts(v),id=`G-${seed}`,me=D.joined.some(j=>j.gid===id);
+    const have=Math.max(1,N-2-hash(seed+'n')%4)+(me?1:0);out.push({id,venue:v.id,court:c,date:d,h,N,have,level:hash(seed+'l')%3+1,host:hash(seed),me,price:perHead(v,c,h,N)})}});
+  return out.sort((a,b)=>(a.date+String(a.h).padStart(2,'0')).localeCompare(b.date+String(b.h).padStart(2,'0')))}
+/* Streak (group plays in consecutive weeks, week = Sun to Sat) */
+const STREAK_BASE=3;
+const weekStart=d=>{const x=parse(d);x.setDate(x.getDate()-x.getDay());return iso(x)};
+function playedThisWeek(){const ws=weekStart(TODAY),we=addDays(ws,6),inW=d=>d>=ws&&d<=we;return D.bookings.some(b=>inW(b.date))||D.joined.some(j=>inW(j.date))}
+const streakN=()=>STREAK_BASE+(playedThisWeek()?1:0);
+/* Jersey (campaign 2): 10 bookings in the academic year -> buy for 200 instead of 400 */
+const JERSEY_GOAL=10;
+const jerseyCount=()=>D.bookings.length+D.joined.length;
+let UI={mode:D.auth==='owner'?'owner':'player',view:'home',date:nowH()>=21?addDays(TODAY,1):TODAY,sport:'all',q:'',venue:null,vtab:'time',sel:null,timer:null,co:null,invite:[],bkTab:'up',mmSport:'all',ck:{analytics:false,marketing:false},oTab:'overview',oDate:TODAY,mtSport:'football',mt:null,last:null,focus:null,rate:null};
 let hist=[];let tick=null;let MAP=null,VMAP=null,MK={};
 
 /* location label (kept language-neutral in storage) */
@@ -153,14 +184,20 @@ function locName(l=D.loc){if(l.kind==='area')return AREAS[l.i][lg()];if(l.kind==
 const NT={
  welcome:()=>[t('ยินดีต้อนรับสู่ BookMatch','Welcome to BookMatch'),t('จองครั้งแรกลด 50 บาท ใช้ได้ทุกสนามในแอป','฿50 off your first booking at any venue in the app')],
  booked:p=>[t('จองสำเร็จ','Booking confirmed'),`${vName(V(p.v))} ${court(V(p.v),p.c)} · ${fmtDate(p.d)} ${range(p.h)} · ${t('รหัส','Code')} ${p.id}`],
- invite:p=>[t('ส่งคำชวนเพื่อนแล้ว','Invites sent'),t(`${fnList(p.f)} ได้รับลิงก์ยืนยันการเล่น`,`${fnList(p.f)} got a link to confirm`)],
+ invite:p=>[t('ส่งคำชวนเพื่อนแล้ว','Invites sent'),p.s?t(`${fnList(p.f)} ได้รับลิงก์จ่ายคนละ ${baht(p.s)} และยืนยันการเล่น`,`${fnList(p.f)} got a link to pay ${baht(p.s)} each and confirm`):t(`${fnList(p.f)} ได้รับลิงก์ยืนยันการเล่น`,`${fnList(p.f)} got a link to confirm`)],
  queued:p=>[t('เข้าคิว MatchQueue แล้ว','Joined MatchQueue'),`${vName(V(p.v))} · ${fmtDate(p.d)} ${hh(p.h)} · ${t('ถ้ามีคนยกเลิก เราจะแจ้งคุณทันที','we will tell you as soon as someone cancels')}`],
  offer:p=>[t(`สนามว่างแล้ว ยืนยันภายใน ${p.m} นาที`,`Slot free, confirm within ${p.m} min`),`${vName(V(p.v))} ${court(V(p.v),p.c)} · ${fmtDate(p.d)} ${hh(p.h)} · ${t('MatchQueue เสนอให้คุณก่อน','MatchQueue is offering it to you first')}`],
  cancelled:p=>[t('ยกเลิกการจองแล้ว','Booking cancelled'),t(`คืนเงิน ${baht(p.r)} ภายใน 3–5 วันทำการ · ส่งช่วงเวลาให้คิวถัดไปแล้ว`,`${baht(p.r)} refunded within 3–5 working days · slot passed to the queue`)],
  remind:p=>[t('อีก 2 ชม. ถึงเวลาเล่น','Game in 2 hours'),`${vName(V(p.v))} ${court(V(p.v),p.c)} · ${range(p.h)} · ${t('ออกเดินทางตอนนี้ทันเวลาพอดี','leave now to make it on time')}`],
+ joined:p=>[t('เข้าร่วมเกมแล้ว','You joined a game'),`${vName(V(p.v))} · ${fmtDate(p.d)} ${hh(p.h)} · ${t('จ่ายแล้ว','paid')} ${baht(p.x)}`],
+ left:p=>[t('ออกจากเกมแล้ว','You left the game'),t(`คืนเงิน ${baht(p.x)} ภายใน 3–5 วันทำการ`,`${baht(p.x)} refunded within 3–5 working days`)],
+ mmPosted:p=>[t('เปิดรับผู้เล่นใน MatchMake แล้ว','Your game is on MatchMake'),t(`ขาดอีก ${p.n} คน · ${vName(V(p.v))} ${fmtDate(p.d)} ${hh(p.h)}`,`${p.n} more needed · ${vName(V(p.v))} ${fmtDate(p.d)} ${hh(p.h)}`)],
+ mmJoin:p=>[p.n?t('มีคนเข้าร่วมเกมของคุณ','A player joined your game'):t('ทีมครบแล้ว','Your team is full'),p.n?t(`${nameAt(p.who)} เข้าร่วมแล้ว ขาดอีก ${p.n} คน`,`${nameAt(p.who)} joined, ${p.n} more needed`):t(`${nameAt(p.who)} เข้าร่วมเป็นคนสุดท้าย ปิดรับผู้เล่นอัตโนมัติ`,`${nameAt(p.who)} took the last spot, so the game is closed`)],
+ club:p=>[t('ชมรมของคุณได้เครดิต 20 บาท','Your club earned ฿20'),t(`${clubName(p.c)} ได้เครดิตจากการจองครั้งแรกของคุณ ใช้จองสนามซ้อมได้`,`${clubName(p.c)} got credit for your first booking, to spend on practice slots`)],
+ jersey:p=>[t('สั่งเสื้อ BookMatch Jersey แล้ว','BookMatch Jersey ordered'),t(`ไซซ์ ${p.s} · ฿200 (ปกติ ฿400) · รับที่บูธ MU Jerseys`,`Size ${p.s} · ฿200 (usually ฿400) · collect at the MU Jerseys stand`)],
  review:()=>[t('ขอบคุณสำหรับรีวิว','Thanks for your review'),t('รีวิวของคุณช่วยให้ผู้เล่นคนอื่นเลือกสนามได้ง่ายขึ้น','Your review helps other players choose a venue')],
 };
-const NI={welcome:['gift','g'],booked:['check','g'],remind:['clock','b'],queued:['queue','a'],offer:['bell','a'],cancelled:['x','r'],invite:['send','b'],review:['star','a']};
+const NI={welcome:['gift','g'],booked:['check','g'],remind:['clock','b'],queued:['queue','a'],offer:['bell','a'],cancelled:['x','r'],invite:['send','b'],joined:['users','g'],left:['x','r'],mmPosted:['users','b'],mmJoin:['users','g'],club:['gift','g'],jersey:['shirt','a'],review:['star','a']};
 
 /* ============ slot logic ============ */
 const dist=v=>km(D.loc,v);
@@ -216,14 +253,15 @@ const todayL=()=>t('วันนี้','Today');
 function dateStrip(cur,act){return `<div class="dates">${days7().map(d=>{const x=parse(d);return `<button class="dchip ${d===cur?'on':''}" data-a="${act}" data-d="${d}" aria-pressed="${d===cur}"><small>${d===TODAY?todayL():dayS(x.getDay())}</small><b>${x.getDate()}</b></button>`}).join('')}</div>`}
 const bar=(title,sub='')=>`<div class="bar wrap"><button class="iconbtn" data-a="back" aria-label="${t('ย้อนกลับ','Back')}">${ic('back')}</button><div style="min-width:0;flex:1"><h1>${title}</h1>${sub?`<div class="mut sm-t">${sub}</div>`:''}</div>${langBtn()}</div>`;
 const unread=()=>D.notifs.filter(n=>!n.read).length;
-const NAV=()=>[['home','home',t('หน้าแรก','Home')],['map','map',t('ค้นหาบนแผนที่','Map search')],['matchtime','users','MatchTime'],['bookings','cal',t('การจอง','Bookings')],['notifs','bell',t('แจ้งเตือน','Notifications')],['profile','user',t('โปรไฟล์','Profile')]];
-const TABBAR=()=>[['home','home',t('หน้าแรก','Home')],['map','map',t('แผนที่','Map')],['matchtime','users','MatchTime'],['bookings','cal',t('การจอง','Bookings')],['profile','user',t('โปรไฟล์','Profile')]];
+const NAV=()=>[['home','home',t('หน้าแรก','Home')],['map','map',t('ค้นหาบนแผนที่','Map search')],['matchtime','users','MatchTime'],['matchmake','ball','MatchMake'],['bookings','cal',t('การจอง','Bookings')],['notifs','bell',t('แจ้งเตือน','Notifications')],['profile','user',t('โปรไฟล์','Profile')]];
+const TABBAR=()=>[['home','home',t('หน้าแรก','Home')],['map','map',t('แผนที่','Map')],['matchtime','users',t('นัดเล่น','Play')],['bookings','cal',t('การจอง','Bookings')],['profile','user',t('โปรไฟล์','Profile')]];
 const navOn=v=>UI.view===v||(v==='home'&&['venue','checkout','pay','success'].includes(UI.view))||(v==='matchtime'&&UI.view==='mtvenues');
+const tabOn=v=>navOn(v)||(v==='matchtime'&&UI.view==='matchmake');
 const langBtn=(cls='')=>`<button class="langbtn ${cls}" data-a="lang" aria-label="${t('Switch to English','เปลี่ยนเป็นภาษาไทย')}">${ic('globe',16)}<span>${EN()?'ไทย':'EN'}</span></button>`;
 function sidenav(){const u=unread();
   return `<aside class="side"><div class="side-logo"><span class="logo-m">B</span><b>BookMatch</b></div><nav aria-label="${t('เมนูหลัก','Main menu')}">${NAV().map(([v,i,l])=>`<button class="${navOn(v)?'on':''}" data-a="tab" data-t="${v}">${ic(i,22)}<span>${l}</span>${v==='notifs'&&u?`<span class="dot">${u}</span>`:''}</button>`).join('')}</nav>
   <button class="side-owner" data-a="toOwner">${ic('swap',20)}<span>${t('มุมมองเจ้าของสนาม','Venue owner view')}</span></button></aside>`}
-function tabbar(){return `<nav class="tabbar" aria-label="${t('เมนูหลัก','Main menu')}">${TABBAR().map(([v,i,l])=>`<button class="${navOn(v)?'on':''}" data-a="tab" data-t="${v}">${ic(i,22)}${l}</button>`).join('')}</nav>`}
+function tabbar(){return `<nav class="tabbar" aria-label="${t('เมนูหลัก','Main menu')}">${TABBAR().map(([v,i,l])=>`<button class="${tabOn(v)?'on':''}" data-a="tab" data-t="${v}">${ic(i,22)}${l}</button>`).join('')}</nav>`}
 const topAct=(extra='')=>{const u=unread();return `<div class="top-act">${langBtn()}<button class="iconbtn m-only" data-a="tab" data-t="notifs" aria-label="${t('แจ้งเตือน','Notifications')}">${ic('bell')}${u?`<span class="dot">${u}</span>`:''}</button>${extra}</div>`};
 function toast(m){const el=document.createElement('div');el.className='toast';el.setAttribute('role','status');el.textContent=m;document.body.appendChild(el);setTimeout(()=>el.remove(),2600)}
 function openSheet(html){$('#layer').innerHTML=`<div class="backdrop" data-a="closeSheet"></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`}
@@ -241,6 +279,8 @@ function login(){
     <button class="sso line" data-a="login" data-r="player"><b style="font-size:13px;background:#fff;color:#06C755;border-radius:6px;padding:1px 5px">LINE</b> ${t('เข้าสู่ระบบด้วย LINE','Continue with LINE')}</button>
     <button class="sso gg" data-a="login" data-r="player"><b style="color:#4285F4">G</b> ${t('เข้าสู่ระบบด้วย Google','Continue with Google')}</button>
     <button class="sso ph" data-a="login" data-r="player">${ic('phone',18)} ${t('ใช้เบอร์โทรศัพท์ (รับรหัส OTP)','Use phone number (OTP)')}</button>
+    <label class="field" style="margin-top:14px"><span>${t('รหัสชมรม BookMatch Affiliate (ถ้ามี)','BookMatch Affiliate club code (optional)')}</span><input id="clubcode" placeholder="${t('เช่น ICTFC','e.g. ICTFC')}" autocomplete="off" maxlength="12" style="text-transform:uppercase"></label>
+    <p class="mut" style="font-size:13px;margin-top:4px">${t('ชมรมได้เครดิต 20 บาทเมื่อคุณจองครั้งแรก ใช้จองสนามซ้อมได้ ตัวอย่างรหัส: ICTFC, MUFC, MUBAD','Your club gets ฿20 credit on your first booking, for practice slots. Example codes: ICTFC, MUFC, MUBAD')}</p>
     <div class="or">${t('หรือ','or')}</div>
     <button class="btn ghost block" data-a="login" data-r="owner">${ic('grid',18)} ${t('เข้าสู่ระบบสำหรับเจ้าของสนาม','Sign in as a venue owner')}</button>
     <p class="mut" style="font-size:13px;margin-top:16px;text-align:center">${t('ต้นแบบนี้ไม่เชื่อมบัญชีจริง กดปุ่มใดก็ได้เพื่อเข้าใช้งาน<br>การใช้งานถือว่ายอมรับข้อกำหนดและนโยบายความเป็นส่วนตัว (PDPA)','This prototype is not connected to real accounts. Any button signs you in.<br>Using it means you accept the terms and privacy policy (PDPA).')}</p></div></div></div>`;
@@ -249,7 +289,7 @@ function login(){
 /* ============ player views ============ */
 function venueCard(v){
   const n=freeCount(v.id,UI.date);const nf=freeHours(v.id,UI.date).slice(0,4);
-  return `<article class="vcard" role="button" tabindex="0" data-a="openVenue" data-v="${v.id}" aria-label="${esc(vName(v))}"><div class="vart">${art(v)}<span class="tag">${SPORTS[v.sport].icon} ${vx(v,'type')}</span>${boosted(v)?`<span class="tag boost">${t('แนะนำ','Featured')}</span>`:''}</div>
+  return `<article class="vcard" role="button" tabindex="0" data-a="openVenue" data-v="${v.id}" aria-label="${esc(vName(v))}"><div class="vart">${art(v)}<span class="tag">${SPORTS[v.sport].icon} ${vx(v,'type')}</span>${boosted(v)?`<span class="tag boost">${t('แนะนำ','Featured')}</span>`:''}${dmOn(v)?`<span class="tag dmtag">DayMatch −20% ${t('ช่วงกลางวัน','daytime')}</span>`:''}</div>
   <div class="vbody"><div class="vrow"><h3>${vName(v)}</h3><span class="rate">${ic('star',14)} ${v.rating}</span></div>
   <div class="meta">${ic('pin',14)} ${fmtKm(v)} ${KM()} · ${vx(v,'area')}</div>
   <div class="vrow"><div class="price">${priceTxt(v)}<small> /${HR(1)}</small></div><div class="free ${n?'':'none'}">${n?t(`ว่าง ${n} ช่วง`,`${n} slots free`):t('เต็มทั้งวัน','Fully booked')}</div></div>
@@ -273,7 +313,8 @@ function home(){
   return `<div class="wrap"><header class="top"><div><div class="hello">${t('สวัสดี Nice','Hi Nice')}</div><h1>${t('วันนี้เล่นที่ไหนดี?','Where are you playing today?')}</h1></div>${topAct(`<button class="avatar m-only" data-a="tab" data-t="profile" aria-label="${t('โปรไฟล์','Profile')}">N</button>`)}</header>
    <label class="search">${ic('search',18)}<input id="q" placeholder="${t('ค้นหาสนามหรือชนิดกีฬา','Search venues or sports')}" value="${esc(UI.q)}" autocomplete="off" aria-label="${t('ค้นหาสนาม','Search venues')}"></label>
    <button class="locchip" data-a="tab" data-t="map">${ic('pin',18)}<span>${esc(locName())} · ${t('รัศมี','radius')} ${D.radius} ${KM()}</span><u>${t('เปลี่ยนพื้นที่','Change area')}</u></button>
-   <div class="feat">${upc}<button class="mt-card" data-a="tab" data-t="matchtime"><div class="ico">${ic('users',24)}</div><div><b>${t('MatchTime: นัดเพื่อนไม่ลงตัว?','MatchTime: can’t agree on a time?')}</b><span>${t('เลือกเพื่อนในกลุ่ม ระบบหาเวลาที่ทุกคนว่างตรงกันให้','Pick your friends and it finds when everyone is free')}</span></div></button></div>
+   <div class="feat">${upc}<button class="mt-card" data-a="tab" data-t="matchtime"><div class="ico">${ic('users',24)}</div><div><b>${t('MatchTime: นัดเพื่อนไม่ลงตัว?','MatchTime: can’t agree on a time?')}</b><span>${t('เลือกเพื่อนในกลุ่ม ระบบหาเวลาที่ทุกคนว่างตรงกันให้','Pick your friends and it finds when everyone is free')}</span></div></button>
+   <button class="mt-card mm" data-a="tab" data-t="matchmake"><div class="ico">${ic('ball',24)}</div><div><b>${t('MatchMake: คนไม่ครบ?','MatchMake: short of players?')}</b><span>${t(`มี ${openGames().length} เกมเปิดรับคนเพิ่มสัปดาห์นี้ เข้าร่วมแล้วจ่ายแค่ส่วนของคุณ`,`${openGames().length} open games this week. Join and pay just your share.`)}</span></div></button></div>
    <div class="chips">${['all',...Object.keys(SPORTS)].map(s=>`<button class="chip ${UI.sport===s?'on':''}" data-a="sport" data-s="${s}">${s==='all'?t('ทั้งหมด','All'):SPORTS[s].icon+' '+sportL(s)}</button>`).join('')}</div>
    ${dateStrip(UI.date,'date')}
    <div class="sec-h"><h2>${t('สนามใกล้','Venues near')} ${esc(locName())}</h2><span>${fmtDate(UI.date)}</span></div>
@@ -333,10 +374,10 @@ function timetable(v){
   const cells=HOURS.map(h=>`<div class="gt">${hh(h)}</div>`+vx(v,'courts').map((_,c)=>{
     let st=slotState(v.id,c,UI.date,h);const sel=s&&s.court===c&&s.hours.includes(h);
     if(st==='booked'&&inQueue(v.id,c,UI.date,h))st='queued';
-    const lab=sel?ic('check',16):LAB[st];
-    return `<button class="cell ${sel?'sel':st}" data-a="cell" data-c="${c}" data-h="${h}" aria-label="${court(v,c)} ${hh(h)} ${sel?t('ที่เลือก','selected'):(LAB[st]||t('ผ่านไปแล้ว','past'))}" ${st==='past'?'tabindex="-1"':''}>${lab}</button>`}).join('')).join('');
+    const dm=st==='free'&&isDM(v,h);const lab=sel?ic('check',16):(dm?`<span>${LAB.free}<small>−20%</small></span>`:LAB[st]);
+    return `<button class="cell ${sel?'sel':st}${dm?' dm':''}" data-a="cell" data-c="${c}" data-h="${h}" aria-label="${court(v,c)} ${hh(h)} ${sel?t('ที่เลือก','selected'):(LAB[st]||t('ผ่านไปแล้ว','past'))}" ${st==='past'?'tabindex="-1"':''}>${lab}</button>`}).join('')).join('');
   return `${dateStrip(UI.date,'vdate')}
-   <div class="legend"><span><i style="background:#fff;border:1px solid var(--line)"></i>${LAB.free}</span><span><i style="background:var(--brand)"></i>${t('ที่เลือก','Selected')}</span><span><i style="background:#E3E8E4"></i>${t('เต็ม (แตะเพื่อเข้าคิว)','Full (tap to queue)')}</span><span><i style="background:var(--lime)"></i>${LAB.mine}</span></div>
+   <div class="legend"><span><i style="background:#fff;border:1px solid var(--line)"></i>${LAB.free}</span><span><i style="background:var(--brand)"></i>${t('ที่เลือก','Selected')}</span><span><i style="background:#E3E8E4"></i>${t('เต็ม (แตะเพื่อเข้าคิว)','Full (tap to queue)')}</span><span><i style="background:var(--lime)"></i>${LAB.mine}</span>${dmOn(v)?`<span><i style="background:#F3FADF;border:1px solid #CFE89A"></i>DayMatch −20% ${t('ก่อน 16:00','before 16:00')}</span>`:''}</div>
    <div class="grid" style="--n:${nCourts(v)}"><div></div>${vx(v,'courts').map((c,i)=>`<div class="gh">${c}${v.ctype?`<small>${PTYPE[v.ctype[i]][lg()]} · ${baht(pp(v,i))}</small>`:''}</div>`).join('')}${cells}</div>`;
 }
 function reviewsOf(v){
@@ -353,11 +394,11 @@ function pitchInfo(v){
   <div class="card"><h3>${vx(v,'area')} · ${t(`ห่าง ${fmtKm(v)} กม. จาก${esc(locName())}`,`${fmtKm(v)} km from ${esc(locName())}`)}</h3><div class="minimap" id="vmap" data-lat="${v.lat}" data-lng="${v.lng}"></div></div>
   <div class="card"><div class="vrow"><h3>${t('รีวิวจากผู้เล่น','Player reviews')}</h3><span class="rate">${ic('star',14)} ${v.rating} · ${v.reviews} ${t('รีวิว','reviews')}</span></div>${reviewsOf(v).map(r=>`<div class="rev"><div class="vrow"><b style="font-size:15px">${esc(r.n)}</b><span class="stars">${'★'.repeat(r.s)}${'☆'.repeat(5-r.s)}</span></div><p class="mut sm-t">${esc(r.x)}</p></div>`).join('')}</div>`;
 }
-function selSummary(v){const s=UI.sel,n=s?s.hours.length:0;return {n,txt:n?`${court(v,s.court)} · ${fmtDate(UI.date)} · ${range(s.hours)}`:'',total:(s?pp(v,s.court):v.price)*n}}
+function selSummary(v){const s=UI.sel,n=s?s.hours.length:0;return {n,txt:n?`${court(v,s.court)} · ${fmtDate(UI.date)} · ${range(s.hours)}`:'',total:s?sumPrice(v,s.court,s.hours):0,base:s?pp(v,s.court)*n:0}}
 function venueView(){
   const v=V(UI.venue);if(!v)return home();const s=selSummary(v);
   const hint=t('แตะช่อง "ว่าง" เพื่อเลือกเวลา เลือกต่อกันได้สูงสุด 3 ชม.','Tap a "Free" slot to pick a time. Up to 3 hours in a row.');
-  const panel=`<div class="card bpanel"><h3>${t('สรุปการจอง','Booking summary')}</h3>${s.n?`<div class="row"><span class="mut">${t('ช่วงเวลา','Time')}</span><span>${s.txt}</span></div><div class="row"><span class="mut">${t('ค่าสนาม','Court fee')}</span><span>${baht(pp(v,UI.sel.court))} × ${s.n} ${HR(s.n)}</span></div><div class="row total"><span>${t('รวม','Total')}</span><span>${baht(s.total)}</span></div><button class="btn block" style="margin-top:12px" data-a="toCheckout">${t('จองเลย','Book now')}</button>`
+  const panel=`<div class="card bpanel"><h3>${t('สรุปการจอง','Booking summary')}</h3>${s.n?`<div class="row"><span class="mut">${t('ช่วงเวลา','Time')}</span><span>${s.txt}</span></div><div class="row"><span class="mut">${t('ค่าสนาม','Court fee')}</span><span>${baht(pp(v,UI.sel.court))} × ${s.n} ${HR(s.n)}</span></div>${s.base>s.total?`<div class="row"><span class="mut">DayMatch −20%</span><span class="disc">-${baht(s.base-s.total)}</span></div>`:''}<div class="row total"><span>${t('รวม','Total')}</span><span>${baht(s.total)}</span></div><button class="btn block" style="margin-top:12px" data-a="toCheckout">${t('จองเลย','Book now')}</button>`
      :`<p class="mut sm-t">${hint}</p>`}
      <div class="note">${ic('shield',16)}<span>${t('ยกเลิกได้ถึง 24 ชม. ก่อนเวลาเล่น หลังจากนั้นยกเลิกไม่ได้','Cancel up to 24 hrs before play. No cancellations after that.')}</span></div></div>
     <div class="card"><h3>${ic('pin',16)}${t(`${fmtKm(v)} กม. จาก${esc(locName())}`,`${fmtKm(v)} km from ${esc(locName())}`)}</h3><p class="mut sm-t">${vx(v,'area')}</p><div class="fac">${vx(v,'fac').slice(0,4).map(f=>`<span>${f}</span>`).join('')}</div></div>`;
@@ -369,18 +410,22 @@ function venueView(){
      :(UI.vtab==='info'?`<button class="btn block" data-a="vtab" data-t="time">${t('ดูตารางเวลาว่าง','See free times')}</button>`:`<div class="cta-hint">${hint}</div>`)}</div>`;
 }
 /* --- checkout / pay / success --- */
-const coAmounts=()=>{const c=UI.co,v=V(c.venue),per=pp(v,c.court)*c.hours.length,disc=D.firstUsed?0:50;return {v,per,disc,today:per-disc}};
+const coAmounts=()=>{const c=UI.co,v=V(c.venue),base=pp(v,c.court)*c.hours.length,per=sumPrice(v,c.court,c.hours),dm=base-per,disc=D.firstUsed?0:50,total=per-disc,
+  players=(c.split&&UI.invite.length)?UI.invite.length+1:1;return {v,base,dm,per,disc,total,players,today:Math.ceil(total/players)}};
 function checkout(){
-  const c=UI.co,{v,per,disc,today}=coAmounts(),n=c.hours.length;
+  const c=UI.co,{v,base,dm,disc,total,players,today}=coAmounts(),n=c.hours.length;
   const pms=[['promptpay','PromptPay QR',t('สแกนจ่ายผ่านแอปธนาคาร','Scan with any banking app'),'#113566','QR'],['card',t('บัตรเครดิต/เดบิต','Credit/debit card'),'Visa · Mastercard · JCB','#1C2B4A','CARD'],['truemoney','TrueMoney Wallet',t('จ่ายผ่านวอลเล็ต','Pay with your wallet'),'#E8611A','TMN']];
-  const priceCard=`<div class="card"><h3 style="margin-bottom:6px">${t('สรุปยอด','Price summary')}</h3><div class="row"><span>${t('ค่าสนาม','Court fee')} ${baht(pp(v,c.court))} × ${n} ${HR(n)}</span><span>${baht(per)}</span></div>
+  const priceCard=`<div class="card"><h3 style="margin-bottom:6px">${t('สรุปยอด','Price summary')}</h3><div class="row"><span>${t('ค่าสนาม','Court fee')} ${baht(pp(v,c.court))} × ${n} ${HR(n)}</span><span>${baht(base)}</span></div>
+    ${dm?`<div class="row"><span>${t('DayMatch ลดช่วงกลางวัน 20%','DayMatch daytime 20% off')}</span><span class="disc">-${baht(dm)}</span></div>`:''}
     ${disc?`<div class="row"><span>${t('ส่วนลดจองครั้งแรก','First-booking discount')}</span><span class="disc">-${baht(disc)}</span></div>`:''}
-    <div class="row total"><span>${t('ชำระวันนี้','Pay today')}</span><span>${baht(today)}</span></div>
+    ${players>1?`<div class="row"><span>${t('รวมทั้งหมด','Total')}</span><span>${baht(total)}</span></div><div class="row"><span>${t(`หาร ${players} คน`,`Split ${players} ways`)}</span><span>${baht(today)} ${t('/คน','each')}</span></div>`:''}
+    <div class="row total"><span>${players>1?t('คุณจ่ายวันนี้','You pay today'):t('ชำระวันนี้','Pay today')}</span><span>${baht(today)}</span></div>
     ${canCancel(c.date,c.hours)?`<div class="note">${ic('shield',16)}<span>${t('ยกเลิกได้ถึง 24 ชม. ก่อนเวลาเล่น คืนเงินเต็มจำนวน หลังจากนั้นยกเลิกไม่ได้','Cancel up to 24 hrs before play for a full refund. No cancellations after that.')}</span></div>`:`<div class="note amber">${ic('lock',16)}<span>${t('การจองนี้เริ่มภายใน 24 ชม. ชำระเงินแล้วจะยกเลิกไม่ได้','This booking starts within 24 hrs, so it cannot be cancelled once paid.')}</span></div>`}
     <button class="btn block d-only" style="margin-top:14px" data-a="toPay">${t('ชำระเงิน','Pay')} ${baht(today)}</button></div>`;
   return `${bar(t('ตรวจสอบการจอง','Review booking'))}<div class="wrap"><div class="colayout"><div>
    <div class="card"><div class="sum"><div class="thumb">${art(v)}</div><div style="min-width:0"><h3>${vName(v)}</h3><div class="mut sm-t">${court(v,c.court)} · ${vx(v,'type')}</div><div style="font-size:15px;margin-top:2px">${fmtLong(c.date)} · ${range(c.hours)}</div></div></div></div>
-   ${UI.invite.length?`<div class="card"><h3>${ic('send',16)}${t('ชวนเพื่อนจาก MatchTime','Invite friends from MatchTime')}</h3><div class="mut sm-t" style="margin-top:2px">${t(`ส่งคำชวนให้ ${fnList(UI.invite)} หลังจองเสร็จ`,`${fnList(UI.invite)} will get an invite once you book`)}</div></div>`:''}
+   ${UI.invite.length?`<div class="card"><h3>${ic('send',16)}${t('ชวนเพื่อนจาก MatchTime','Invite friends from MatchTime')}</h3><div class="mut sm-t" style="margin-top:2px">${t(`ส่งคำชวนให้ ${fnList(UI.invite)} หลังจองเสร็จ`,`${fnList(UI.invite)} will get an invite once you book`)}</div>
+     <button class="toggle" data-a="split" aria-pressed="${!!c.split}" style="margin-top:12px"><div><b>${t('หารค่าสนามกับเพื่อน','Split the pitch fee')}</b><div class="mut sm-t">${t(`คนละ ${baht(Math.ceil(total/(UI.invite.length+1)))} คุณจ่ายส่วนของคุณตอนนี้ เพื่อนจ่ายผ่านลิงก์ในคำชวน`,`${baht(Math.ceil(total/(UI.invite.length+1)))} each. You pay your share now; friends pay from the invite link.`)}</div></div><span class="sw ${c.split?'on':''}"></span></button></div>`:''}
    <div class="card"><h3>${t('วิธีชำระเงิน','Payment method')}</h3>${pms.map(([id,ti,s,col,lgo])=>`<button class="pm ${c.method===id?'on':''}" data-a="method" data-m="${id}" aria-pressed="${c.method===id}"><span class="logo" style="background:${col}">${lgo}</span><span><b>${ti}</b><br><small class="mut">${s}</small></span><span class="radio"></span></button>`).join('')}</div>
   </div><aside class="coaside">${priceCard}</aside></div></div>
   <div class="cta hide-d"><div><div class="cta-t">${t('ยอดชำระ','Amount due')}</div><div class="cta-p">${baht(today)}</div></div><button class="btn" data-a="toPay">${t('ชำระเงิน','Pay')}</button></div>`;
@@ -403,8 +448,10 @@ function success(){
    <div class="ticket"><div class="tt"><span>${t('รหัสการจอง','Booking code')}</span><b>${b.id}</b></div><div class="tb">
     <div class="row"><span class="mut">${t('สนาม','Venue')}</span><span>${vName(v)}</span></div><div class="row"><span class="mut">${t('คอร์ท','Court')}</span><span>${court(v,b.court)}</span></div>
     <div class="row"><span class="mut">${t('วันที่','Date')}</span><span>${fmtLong(b.date)}</span></div><div class="row"><span class="mut">${t('เวลา','Time')}</span><span>${range(b.hours)}</span></div>
-    <div class="row total"><span>${t('ชำระแล้ว','Paid')}</span><span>${baht(b.paid)}</span></div></div></div>
-   ${b.invite&&b.invite.length?`<div class="note green">${ic('send',16)}<span>${t(`ส่งคำชวนให้ ${fnList(b.invite)} แล้ว เพื่อนกดยืนยันได้จากลิงก์`,`Invites sent to ${fnList(b.invite)}. They confirm from the link.`)}</span></div>`:`<button class="btn ghost block" data-a="tab" data-t="matchtime">${ic('users',18)} ${t('ชวนเพื่อนผ่าน MatchTime','Invite friends with MatchTime')}</button>`}
+    ${b.split?`<div class="row"><span class="mut">${t('หารค่าสนาม','Split')}</span><span>${t(`${b.split} คน · รวม ${baht(b.total)}`,`${b.split} ways · total ${baht(b.total)}`)}</span></div>`:''}
+    <div class="row total"><span>${b.split?t('คุณจ่ายแล้ว','You paid'):t('ชำระแล้ว','Paid')}</span><span>${baht(b.paid)}</span></div></div></div>
+   ${jerseyCard(true)}
+   ${b.invite&&b.invite.length?`<div class="note green">${ic('send',16)}<span>${b.split?t(`ส่งลิงก์ให้ ${fnList(b.invite)} แล้ว เพื่อนจ่ายคนละ ${baht(b.paid)} และกดยืนยันได้จากลิงก์`,`Links sent to ${fnList(b.invite)}. Each pays ${baht(b.paid)} and confirms from the link.`):t(`ส่งคำชวนให้ ${fnList(b.invite)} แล้ว เพื่อนกดยืนยันได้จากลิงก์`,`Invites sent to ${fnList(b.invite)}. They confirm from the link.`)}</span></div>`:`<button class="btn ghost block" data-a="tab" data-t="matchtime">${ic('users',18)} ${t('ชวนเพื่อนผ่าน MatchTime','Invite friends with MatchTime')}</button>`}
    <button class="btn block" style="margin-top:10px" data-a="tab" data-t="bookings">${t('ดูการจองของฉัน','My bookings')}</button>
    <button class="btn ghost block" style="margin-top:10px" data-a="tab" data-t="home">${t('กลับหน้าแรก','Back to home')}</button></div>`;
 }
@@ -416,10 +463,16 @@ function bookings(){
     const up=upcoming();
     const q=D.queue.map(q=>{const v=V(q.venue);return `<div class="bk" style="border:1px solid #F3CF94"><div class="vrow"><div style="min-width:0"><h3>${vName(v)}</h3><div class="mut sm-t">${court(v,q.court)} · ${fmtDate(q.date)} · ${range([q.h])}</div></div><span class="badge a">${t('คิวที่','Position')} ${q.pos}</span></div>
       <div class="bk-act"><button class="btn amber sm" data-a="simCancel" data-k="${q.key}">${t('จำลอง: มีคนยกเลิก','Simulate: someone cancels')}</button><button class="btn ghost sm" data-a="leaveQ" data-k="${q.key}">${t('ออกจากคิว','Leave queue')}</button></div></div>`}).join('');
+    const joined=D.joined.filter(j=>j.date>TODAY||(j.date===TODAY&&j.h>=nowH()));
+    const jl=joined.map(j=>{const v=V(j.venue),x=parse(j.date);return `<div class="bk" style="border:1px solid #BFD3F2"><div class="bk-top"><div class="datebox" style="background:var(--blue-l);color:var(--blue)"><small>${dayS(x.getDay())}</small><b>${x.getDate()}</b><small>${monS(x.getMonth())}</small></div><div style="min-width:0"><h3>${vName(v)}</h3><div class="mut sm-t">${court(v,j.court)} · ${range([j.h])}</div></div></div>
+      <div class="badges"><span class="badge g">${ic('check',12)} ${t('จ่ายแล้ว','Paid')} ${baht(j.paid)}</span><span class="badge">${ic('ball',12)} MatchMake · ${LEVEL[j.level][lg()]}</span></div>
+      <div class="bk-act">${canCancel(j.date,[j.h])?`<button class="btn ghost sm" data-a="mmLeave" data-g="${j.gid}" style="color:var(--red)">${t('ออกจากเกม','Leave game')}</button>`:`<button class="btn ghost sm" disabled>${ic('lock',14)} ${t('ยกเลิกไม่ได้','No cancellations')}</button>`}</div></div>`}).join('');
     const list=up.map(b=>{const v=V(b.venue),x=parse(b.on);return `<div class="bk"><div class="bk-top"><div class="datebox"><small>${dayS(x.getDay())}</small><b>${x.getDate()}</b><small>${monS(x.getMonth())}</small></div><div style="min-width:0"><h3>${vName(v)}</h3><div class="mut sm-t">${court(v,b.court)} · ${range(b.hours)}</div></div></div>
-      <div class="badges"><span class="badge g">${ic('check',12)} ${t('ชำระแล้ว','Paid')}</span>${canCancel(b.on,b.hours)?'':`<span class="badge a">${ic('lock',12)} ${t('ภายใน 24 ชม. ยกเลิกไม่ได้','Within 24 hrs, locked')}</span>`}${b.invite&&b.invite.length?`<span class="badge">${ic('users',12)} ${t(`เพื่อน ${b.invite.length} คน`,`${b.invite.length} friends`)}</span>`:''}<span class="badge">${b.id}</span></div>
-      <div class="bk-act"><button class="btn ghost sm" data-a="ticket" data-id="${b.id}" data-on="${b.on}">${t('ดูตั๋วเข้าสนาม','Entry ticket')}</button>${canCancel(b.on,b.hours)?`<button class="btn ghost sm" data-a="cancel" data-id="${b.id}" data-on="${b.on}" style="color:var(--red)">${t('ยกเลิก','Cancel')}</button>`:`<button class="btn ghost sm" disabled title="${t('ยกเลิกไม่ได้ภายใน 24 ชม. ก่อนเวลาเล่น','Cannot cancel within 24 hrs of play')}">${ic('lock',14)} ${t('ยกเลิกไม่ได้','No cancellations')}</button>`}</div></div>`}).join('');
+      <div class="badges"><span class="badge g">${ic('check',12)} ${t('ชำระแล้ว','Paid')}</span>${canCancel(b.on,b.hours)?'':`<span class="badge a">${ic('lock',12)} ${t('ภายใน 24 ชม. ยกเลิกไม่ได้','Within 24 hrs, locked')}</span>`}${b.invite&&b.invite.length?`<span class="badge">${ic('users',12)} ${t(`เพื่อน ${b.invite.length} คน`,`${b.invite.length} friends`)}</span>`:''}${b.split?`<span class="badge">${t(`หาร ${b.split} คน`,`Split ${b.split} ways`)}</span>`:''}${b.open&&b.open.n?`<span class="badge" style="background:var(--blue-l);color:var(--blue)">${ic('ball',12)} ${t(`MatchMake ขาด ${b.open.n} คน`,`MatchMake: ${b.open.n} needed`)}</span>`:''}<span class="badge">${b.id}</span></div>
+      <div class="bk-act"><button class="btn ghost sm" data-a="ticket" data-id="${b.id}" data-on="${b.on}">${t('ดูตั๋วเข้าสนาม','Entry ticket')}</button>${canCancel(b.on,b.hours)?`<button class="btn ghost sm" data-a="cancel" data-id="${b.id}" data-on="${b.on}" style="color:var(--red)">${t('ยกเลิก','Cancel')}</button>`:`<button class="btn ghost sm" disabled title="${t('ยกเลิกไม่ได้ภายใน 24 ชม. ก่อนเวลาเล่น','Cannot cancel within 24 hrs of play')}">${ic('lock',14)} ${t('ยกเลิกไม่ได้','No cancellations')}</button>`}</div>
+      <button class="btn ghost sm block" style="margin-top:8px" data-a="mmPost" data-id="${b.id}">${ic('ball',14)} ${b.open&&b.open.n?t('จัดการผู้เล่นที่เปิดรับ','Manage open spots'):t('หาคนเพิ่มหรือหาคนแทน (MatchMake)','Find extra or replacement players (MatchMake)')}</button></div>`}).join('');
     body=`${D.queue.length?`<div class="sec-h"><h2>${ic('queue',18)}${t('MatchQueue ที่รออยู่','Waiting in MatchQueue')}</h2><span>${D.queue.length} ${t('รายการ','items')}</span></div><div class="bgrid">${q}</div>`:''}
+      ${joined.length?`<div class="sec-h"><h2>${ic('ball',18)}${t('เกมที่เข้าร่วม (MatchMake)','Games you joined (MatchMake)')}</h2><span>${joined.length}</span></div><div class="bgrid">${jl}</div>`:''}
       <div class="sec-h"><h2>${t('กำลังจะถึง','Upcoming')}</h2>${up.length?`<button class="tchip" data-a="simDone">${t('จำลอง: เล่นเสร็จแล้ว','Simulate: game played')}</button>`:''}</div>
       <div class="bgrid">${list||`<div class="empty">${ic('cal',40)}<p style="margin-top:8px">${t('ยังไม่มีการจอง','No bookings yet')}</p><button class="btn sm" style="margin-top:12px" data-a="tab" data-t="home">${t('หาสนาม','Find a venue')}</button></div>`}</div>`;
   }else{
@@ -443,13 +496,50 @@ function matchtime(){
   const cells=MH.map(h=>`<div class="t">${hh(h)}</div>`+days.map(d=>{const s=score(d,h);if(s<0)return `<div class="mc" style="border:1px dashed var(--line)"></div>`;
      const r=s/tot;const bg=r===1?'var(--brand)':`rgba(11,122,75,${0.08+r*0.45})`;return `<button class="mc ${r===1?'full':''}" style="background:${bg};color:${r===1?'#fff':'var(--brand-d)'}" data-a="mtCell" data-d="${d}" data-h="${h}" aria-label="${fmtDate(d)} ${hh(h)} ${t(`ว่าง ${s} จาก ${tot}`,`${s} of ${tot} free`)}">${s}/${tot}</button>`}).join('')).join('');
   return `<div class="wrap"><header class="top"><div><div class="hello">MatchTime</div><h1>${t('หาเวลาว่างที่ตรงกัน','Find a time that suits everyone')}</h1></div>${topAct()}</header>
+   ${playSwitch('mt')}
    <div class="mtlayout"><div>
+   ${streakCard()}
    <p class="mut" style="font-size:15px;margin-bottom:10px">${t('เลือกเพื่อนที่จะชวน ระบบดึงตารางว่างของทุกคนมาเทียบให้','Pick who to invite and it compares everyone’s free time')}</p>
    <div class="friends"><div class="fr me"><div class="av" style="background:var(--brand)">N</div>${t('คุณ','You')}</div>${FRIENDS.map(f=>`<button class="fr ${sel.includes(f.id)?'on':''}" data-a="friend" data-f="${f.id}" aria-pressed="${sel.includes(f.id)}"><div class="av" style="background:${f.c}">${f[lg()].slice(0,1)}</div>${f[lg()]}</button>`).join('')}</div>
    <div class="sec-h"><h2>${t('ช่วงที่ว่างครบทุกคน','Everyone free')}</h2><span>${best.length} ${t('ช่วง','slots')}</span></div>
    ${best.slice(0,4).map(([d,h])=>{const x=parse(d);return `<button class="best" data-a="mtCell" data-d="${d}" data-h="${h}"><div class="datebox"><small>${dayS(x.getDay())}</small><b>${x.getDate()}</b></div><div style="flex:1"><h3>${hh(h)}–${hh(h+1)}</h3><div class="mut sm-t">${t(`ว่างครบ ${tot} คน`,`All ${tot} free`)}</div></div><span class="tchip">${t('หาสนาม','Find venue')}</span></button>`}).join('')||`<div class="note amber">${t('ไม่มีช่วงที่ทุกคนว่างตรงกันในสัปดาห์นี้ ลองลดจำนวนเพื่อน หรือดูช่วงที่ว่างเกือบครบในตาราง','No slot this week where everyone is free. Try fewer friends, or check the near-misses in the grid.')}</div>`}
    </div><div><div class="sec-h"><h2>${t('ตารางว่าง 7 วัน','7-day availability')}</h2><span>${t('จำนวนคนที่ว่าง','People free')}</span></div>
    <div class="card" style="padding:12px"><div class="mtgrid"><div></div>${days.map(d=>{const x=parse(d);return `<div class="h">${d===TODAY?todayL():dayS(x.getDay())}<br><b style="color:var(--ink)">${x.getDate()}</b></div>`}).join('')}${cells}</div></div></div></div></div>`;
+}
+function playSwitch(a){return `<div class="seg" style="max-width:520px;margin-top:0"><button class="${a==='mt'?'on':''}" data-a="tab" data-t="matchtime">MatchTime · ${t('นัดเพื่อน','friends')}</button><button class="${a==='mm'?'on':''}" data-a="tab" data-t="matchmake">MatchMake · ${t('หาคนเล่น','find players')}</button></div>`}
+function streakCard(){const on=playedThisWeek(),n=streakN();
+  const dots=Array.from({length:8},(_,i)=>{const lit=i===7?on:i>=7-STREAK_BASE;return `<i class="${lit?'on':''} ${i===7?'now':''}" title="${i===7?t('สัปดาห์นี้','This week'):''}"></i>`}).join('');
+  return `<div class="card streak"><div class="vrow"><h3>${ic('flame',18)}${t(`Streak ของกลุ่ม ${n} สัปดาห์ติดต่อกัน`,`Group streak: ${n} weeks in a row`)}</h3><button class="tchip" data-a="shareStreak">${t('แชร์','Share')}</button></div>
+   <div class="sdots">${dots}</div><p class="mut sm-t">${on?t(`สัปดาห์นี้จองแล้ว Streak ต่อเป็น ${n} สัปดาห์`,`Booked this week, so the streak is now ${n} weeks`):t(`จองภายในวันเสาร์นี้เพื่อต่อ Streak เป็น ${n+1} สัปดาห์`,`Book by this Saturday to make it ${n+1} weeks`)} · ${t('กลุ่ม: คุณ','Group: you')}, ${fnList(D.friends)}</p></div>`}
+const SHIRT=`<svg viewBox="0 0 120 110" class="shirt" aria-hidden="true"><path d="M38 8L12 22 4 46l18 7v49h76V53l18-7-8-24L82 8c-3 9-12 14-22 14S41 17 38 8z" fill="#0B7A4B" stroke="#075233" stroke-width="2"/><path d="M38 8c3 9 12 14 22 14s19-5 22-14" fill="none" stroke="#C8F25A" stroke-width="4"/><rect x="22" y="58" width="76" height="8" fill="#C8F25A"/><text x="60" y="88" text-anchor="middle" font-size="16" font-weight="700" fill="#fff" font-family="Calibri,Carlito,sans-serif">BM 10</text></svg>`;
+function jerseyCard(compact){const n=Math.min(jerseyCount(),JERSEY_GOAL),done=n>=JERSEY_GOAL;
+  return `<div class="card jersey${compact?' compact':''}"><div class="jrow">${SHIRT}<div style="flex:1;min-width:0"><h3>BookMatch Jersey</h3><p class="mut sm-t">${D.jerseyOrdered?t(`สั่งแล้ว ไซซ์ ${D.jerseyOrdered} รับที่บูธ MU Jerseys`,`Ordered, size ${D.jerseyOrdered}. Collect at the MU Jerseys stand.`):done?t('ครบ 10 ครั้งแล้ว ซื้อเสื้อลายพิเศษได้ ฿200 (ปกติ ฿400)','10 bookings done: buy the special shirt for ฿200 (usually ฿400)'):t(`จองอีก ${JERSEY_GOAL-n} ครั้งในปีการศึกษานี้ ซื้อเสื้อ MU Football x BookMatch x MU Jerseys ได้ ฿200 (ปกติ ฿400)`,`${JERSEY_GOAL-n} more bookings this academic year to buy the MU Football x BookMatch x MU Jerseys shirt for ฿200 (usually ฿400)`)}</p>
+   <div class="jbar"><i style="width:${n/JERSEY_GOAL*100}%"></i></div><div class="vrow sm-t"><span>${n}/${JERSEY_GOAL} ${t('การจอง','bookings')}</span><button class="tchip" data-a="jersey">${D.jerseyOrdered?t('ดูคำสั่งซื้อ','View order'):done?t('สั่งซื้อ ฿200','Buy for ฿200'):t('ดูเสื้อ','See the shirt')}</button></div></div></div></div>`}
+function ckSummary(){const c=D.cookie;if(!c)return t('ยังไม่ได้เลือก','Not chosen yet');return [t('จำเป็น','Essential'),c.analytics?t('วิเคราะห์','Analytics'):null,c.marketing?t('การตลาด','Marketing'):null].filter(Boolean).join(' · ')}
+function cookieBar(){if(D.cookie)return '';return `<div class="cookie" role="dialog" aria-label="${t('การใช้คุกกี้','Cookie consent')}"><div class="ck-t">${ic('cookie',22)}<div><b>${t('BookMatch ใช้คุกกี้','BookMatch uses cookies')}</b><p>${t('คุกกี้ที่จำเป็นทำให้จองและชำระเงินได้ ส่วน Google Analytics และ Meta Pixel ใช้เมื่อคุณยินยอมเท่านั้น ตาม PDPA','Essential cookies make booking and payment work. Google Analytics and Meta Pixel run only if you agree, under the PDPA.')}</p></div></div>
+  <div class="ck-act"><button class="btn ghost sm" data-a="ckSet">${t('ตั้งค่า','Settings')}</button><button class="btn ghost sm" data-a="ckNec">${t('เฉพาะที่จำเป็น','Essential only')}</button><button class="btn sm" data-a="ckAll">${t('ยอมรับทั้งหมด','Accept all')}</button></div></div>`}
+function ckSheet(){const c=UI.ck;
+  openSheet(`<h2>${t('ตั้งค่าคุกกี้','Cookie settings')}</h2><div class="sub">${t('เลือกได้ว่าจะให้ BookMatch เก็บข้อมูลอะไร เปลี่ยนได้ตลอดในหน้าโปรไฟล์','Choose what BookMatch may collect. Change it any time from your profile.')}</div>
+   <div class="card"><div class="toggle"><div><b>${t('จำเป็น','Essential')}</b><div class="mut sm-t">${t('เข้าสู่ระบบ จอง และชำระเงิน ปิดไม่ได้','Sign-in, booking and payment. Always on.')}</div></div><span class="sw on" style="opacity:.5"></span></div></div>
+   <div class="card"><button class="toggle" data-a="ckTog" data-k="analytics" aria-pressed="${c.analytics}"><div><b>${t('วิเคราะห์การใช้งาน','Analytics')}</b><div class="mut sm-t">Google Analytics · ${t('ช่วยปรับหน้าจองให้เร็วขึ้น','helps make booking faster')}</div></div><span class="sw ${c.analytics?'on':''}"></span></button></div>
+   <div class="card"><button class="toggle" data-a="ckTog" data-k="marketing" aria-pressed="${c.marketing}"><div><b>${t('การตลาด','Marketing')}</b><div class="mut sm-t">Meta Pixel · ${t('วัดผลโฆษณา','measures ads')}</div></div><span class="sw ${c.marketing?'on':''}"></span></button></div>
+   <button class="btn block" data-a="ckSave">${t('บันทึกการตั้งค่า','Save settings')}</button>`)}
+function matchmake(){
+  const all=openGames(),games=all.filter(g=>UI.mmSport==='all'||V(g.venue).sport===UI.mmSport);
+  const mine=D.bookings.filter(b=>b.open&&b.open.n>0&&(b.date>TODAY||(b.date===TODAY&&Math.max(...b.hours)>=nowH())));
+  const card=g=>{const v=V(g.venue),x=parse(g.date),left=g.N-g.have;return `<div class="bk game"><div class="bk-top"><div class="datebox" style="background:var(--blue-l);color:var(--blue)"><small>${dayS(x.getDay())}</small><b>${x.getDate()}</b></div><div style="min-width:0;flex:1"><h3>${vName(v)}</h3><div class="mut sm-t">${SPORTS[v.sport].icon} ${court(v,g.court)} · ${range([g.h])} · ${fmtKm(v)} ${KM()}</div></div><span class="badge">${LEVEL[g.level][lg()]}</span></div>
+    <div class="fill"><i style="width:${g.have/g.N*100}%"></i></div><div class="vrow sm-t" style="margin-top:6px"><span>${t(`มีแล้ว ${g.have}/${g.N} คน · ขาดอีก ${left}`,`${g.have}/${g.N} players · ${left} needed`)}</span><b>${baht(g.price)}<small class="mut"> /${t('คน','player')}</small></b></div>
+    <div class="bk-act">${g.me?`<span class="badge g" style="align-self:center">${ic('check',12)} ${t('เข้าร่วมแล้ว','Joined')}</span><button class="btn ghost sm" data-a="tab" data-t="bookings">${t('ดูในการจอง','See in bookings')}</button>`:`<button class="btn sm" data-a="mmJoin" data-g="${g.id}">${t('เข้าร่วม','Join')} ${baht(g.price)}</button>`}</div></div>`};
+  const mineCards=mine.map(b=>{const v=V(b.venue),x=parse(b.date);return `<div class="bk game" style="border:2px solid var(--blue)"><div class="bk-top"><div class="datebox" style="background:var(--blue);color:#fff"><small>${dayS(x.getDay())}</small><b>${x.getDate()}</b></div><div style="min-width:0;flex:1"><h3>${t('เกมของคุณ','Your game')} · ${vName(v)}</h3><div class="mut sm-t">${court(v,b.court)} · ${range(b.hours)} · ${LEVEL[b.open.level][lg()]}</div></div></div>
+    <p class="sm-t" style="margin-top:8px">${t(`เปิดรับอีก ${b.open.n} คน ผู้เล่นที่เข้าร่วมจ่ายส่วนของตัวเองผ่านแอป`,`${b.open.n} spots open. Players who join pay their share in the app.`)}</p>
+    <div class="bk-act"><button class="btn sm" data-a="mmSimJoin" data-id="${b.id}">${t('จำลอง: มีคนเข้าร่วม','Simulate: a player joins')}</button><button class="btn ghost sm" data-a="mmClose" data-id="${b.id}">${t('ปิดรับ','Close')}</button></div></div>`}).join('');
+  return `<div class="wrap"><header class="top"><div><div class="hello">MatchMake</div><h1>${t('หาคนเล่นด้วย','Find people to play with')}</h1></div>${topAct()}</header>
+   ${playSwitch('mm')}
+   <p class="mut" style="font-size:15px;margin:2px 0 6px">${t('เกมที่ยังขาดคน เข้าร่วมแล้วจ่ายแค่ส่วนของคุณ ไม่มีเพื่อนก็ได้เล่น หรือเพื่อนยกเลิกก็หาคนแทนได้','Games that are short of players. Join and pay only your share, so you can play without a group, or fill a spot when a friend drops out.')}</p>
+   ${mine.length?`<div class="sec-h"><h2>${t('เกมที่คุณเปิดรับ','Games you opened')}</h2></div><div class="bgrid">${mineCards}</div>`:''}
+   <div class="chips">${['all',...Object.keys(SPORTS)].map(x=>`<button class="chip ${UI.mmSport===x?'on':''}" data-a="mmSport" data-s="${x}">${x==='all'?t('ทุกกีฬา','All sports'):SPORTS[x].icon+' '+sportL(x)}</button>`).join('')}</div>
+   <div class="sec-h"><h2>${t('เกมที่เปิดรับคน 7 วันนี้','Open games, next 7 days')}</h2><span>${games.length} ${t('เกม','games')}</span></div>
+   <div class="bgrid">${games.map(card).join('')||`<div class="empty">${t('ยังไม่มีเกมของกีฬานี้','No open games for this sport yet')}</div>`}</div></div>`;
 }
 function mtVenues(){
   const {d,h}=UI.mt;const list=sortVenues(VENUES.filter(v=>v.sport===UI.mtSport)).map(v=>({v,c:firstFreeCourt(v.id,d,h)}));
@@ -464,7 +554,10 @@ function profile(){
   return `<div class="wrap narrow"><header class="top"><h1>${t('โปรไฟล์','Profile')}</h1>${topAct()}</header>
    <div class="prof"><div class="avatar">N</div><div><h2>Nice</h2><div class="mut" style="font-size:15px">${t('นักศึกษา ม.มหิดล · ฟุตบอล','Mahidol University student · Football')}</div></div></div>
    <div class="stats"><div class="stat"><b>${n}</b><small>${t('การจอง','Bookings')}</small></div><div class="stat"><b>${hrs}</b><small>${t('ชั่วโมงที่จอง','Hours booked')}</small></div><div class="stat"><b>${D.friends.length}</b><small>${t('เพื่อนในกลุ่ม','Friends')}</small></div></div>
-   <div class="menu"><button data-a="lang">${ic('globe')}<span style="flex:1">${t('ภาษา','Language')}<br><small class="mut">${t('ไทย · แตะเพื่อเปลี่ยนเป็น English','English · tap to switch to ไทย')}</small></span></button>
+   ${streakCard()}${jerseyCard()}
+   <div class="menu"><button data-a="club">${ic('gift')}<span style="flex:1">BookMatch Affiliate<br><small class="mut">${D.club?t(`${clubName(D.club)} · ชมรมได้เครดิต 20 บาทเมื่อคุณจองครั้งแรก`,`${clubName(D.club)} · your club gets ฿20 on your first booking`):t('ยังไม่ได้ใส่รหัสชมรม','No club code yet')}</small></span></button>
+    <button data-a="ckSet">${ic('cookie')}<span style="flex:1">${t('ตั้งค่าคุกกี้ (PDPA)','Cookie settings (PDPA)')}<br><small class="mut">${ckSummary()}</small></span></button>
+    <button data-a="lang">${ic('globe')}<span style="flex:1">${t('ภาษา','Language')}<br><small class="mut">${t('ไทย · แตะเพื่อเปลี่ยนเป็น English','English · tap to switch to ไทย')}</small></span></button>
     <button data-a="tab" data-t="map">${ic('pin')}<span style="flex:1">${t('พื้นที่ค้นหา','Search area')}<br><small class="mut">${esc(locName())} · ${D.radius} ${KM()}</small></span></button>
     <button data-a="toOwner">${ic('swap')}<span style="flex:1">${t('สลับเป็นเจ้าของสนาม','Switch to venue owner')}<br><small class="mut">${t('ดูมุมมองของคุณ John','See John’s view')}</small></span></button>
     <button data-a="scope">${ic('info')}<span style="flex:1">${t('ขอบเขตของต้นแบบ','Prototype scope')}</span></button>
@@ -485,10 +578,10 @@ function oState(c,d,h){const k=skey(OWNER_V,c,d,h);const m=mineAt(OWNER_V,c,d,h)
 function ownerStats(){
   const v=V(OWNER_V),cap=nCourts(v)*HOURS.length;
   const dayHours=d=>{let n=0;v.th.courts.forEach((_,c)=>HOURS.forEach(h=>{const o=oState(c,d,h);if(o.name)n++}));return n};
-  const td=parse(TODAY);let rev=0,app=0,src={app:0,phone:0,walkin:0};
-  for(let i=1;i<=td.getDate();i++){const d=iso(new Date(td.getFullYear(),td.getMonth(),i));v.th.courts.forEach((_,c)=>HOURS.forEach(h=>{const o=oState(c,d,h);if(o.name){rev+=pp(v,c);src[o.src]++;if(o.src==='app')app+=pp(v,c)}}))}
+  const td=parse(TODAY);let rev=0,app=0,appN=0,dmRev=0,dmN=0,qfRev=0,qfN=0,src={app:0,phone:0,walkin:0};
+  for(let i=1;i<=td.getDate();i++){const d=iso(new Date(td.getFullYear(),td.getMonth(),i));v.th.courts.forEach((_,c)=>HOURS.forEach(h=>{const o=oState(c,d,h);if(o.name){const p=priceAt(v,c,h);rev+=p;src[o.src]++;if(o.src==='app'){app+=p;appN++;if(isDM(v,h)){dmRev+=p;dmN++}if(hash(skey(OWNER_V,c,d,h)+'qf')%9===0){qfRev+=p;qfN++}}}}))}
   const week=Array.from({length:7},(_,i)=>{const d=addDays(TODAY,i-6);return {d,n:dayHours(d)}});
-  return {cap,today:dayHours(TODAY),rev,app,src,week};
+  return {cap,today:dayHours(TODAY),rev,app,appN,dmRev,dmN,qfRev,qfN,src,week};
 }
 function ownerShell(inner){
   const v=V(OWNER_V);const tabs=[['overview','chart',t('ภาพรวม','Overview')],['schedule','grid',t('ตารางจอง','Schedule')],['queue','queue','MatchQueue'],['settings','gear',t('ตั้งค่าและแพ็กเกจ','Settings & plan')]];
@@ -504,12 +597,21 @@ function ownerOverview(){
    <div class="kpi"><small>${t('อัตราการใช้สนามวันนี้','Utilisation today')}</small><b>${Math.round(s.today/s.cap*100)}%</b><span>${t('ช่วงพีค','Peak')} 17:00–21:00</span></div>
    <div class="kpi"><small>${t('รายได้เดือนนี้','Revenue this month')}</small><b>${baht(s.rev)}</b><span>${t('ถึง','to')} ${fmtDate(TODAY)}</span></div>
    <div class="kpi"><small>${t('คนรอในคิว','People in queue')}</small><b>${qn}</b><span>${t('พร้อมเติมถ้ามีคนยกเลิก','Ready to fill cancellations')}</span></div></div>
+   ${roiCard(s)}
    <div class="ocols"><div class="card"><h3>${t('ชั่วโมงที่ถูกจอง 7 วันล่าสุด','Hours booked, last 7 days')}</h3><div class="bars">${s.week.map(w=>`<div class="${w.d===TODAY?'today':''}"><em>${w.n}</em><i style="height:${Math.max(6,w.n/max*130)}px"></i><small>${w.d===TODAY?todayL():dayS(parse(w.d).getDay())}</small></div>`).join('')}</div></div>
    <div class="card"><h3>${t('ช่องทางการจองเดือนนี้','Booking channels this month')}</h3><div class="stack"><i style="width:${pct('app')}%;background:var(--brand)"></i><i style="width:${pct('phone')}%;background:#6C98DE"></i><i style="width:${pct('walkin')}%;background:#A57BD0"></i></div>
     <div class="lg"><span><i style="background:var(--brand)"></i>BookMatch ${pct('app')}% · ${t('จองและจ่ายเองอัตโนมัติ','self-serve booking and payment')}</span><span><i style="background:#6C98DE"></i>${t('โทรจอง','Phone')} ${pct('phone')}%</span><span><i style="background:#A57BD0"></i>${t('จองหน้าสนาม','Walk-in')} ${pct('walkin')}%</span></div>
     <div class="note green">${ic('info',16)}<span>${t('สายโทรเข้าลดลงเพราะลูกค้าเห็นเวลาว่างเองในแอป','Fewer phone calls, because customers can see free times in the app.')}</span></div></div></div>
    <div class="card"><div class="vrow"><h3>${t('การจองถัดไปวันนี้','Next bookings today')}</h3><button class="btn ghost sm" data-a="oTab" data-t="schedule">${t('ดูตารางทั้งหมด','Full schedule')}</button></div><ul class="list">${next.slice(0,6).map(n=>`<li><span>${hh(n.h)} · ${court(v,n.c)} · ${n.name}</span><span class="badge ${n.src==='app'?'g':''}">${srcL(n.src)}</span></li>`).join('')||`<li><span class="mut">${t('ไม่มีการจองเหลือวันนี้','No more bookings today')}</span></li>`}</ul></div>`);
 }
+function roiCard(s){const com=s.app*0.07,sub=990,net=s.app-com,mult=(s.app/(com+sub)).toFixed(1);
+  return `<div class="card roi"><div class="vrow" style="align-items:flex-start;flex-wrap:wrap"><div><small>${t('รายได้ที่ BookMatch นำมาให้คุณเดือนนี้','Revenue BookMatch brought you this month')}</small><div class="roi-big">${baht(s.app)}</div><span class="mut sm-t">${t(`${s.appN} ชั่วโมงที่ลูกค้าจองและจ่ายผ่านแอป ถึง ${fmtDate(TODAY)}`,`${s.appN} hours booked and paid in the app, to ${fmtDate(TODAY)}`)}</span></div>
+   <span class="badge g" style="font-size:14px">${t(`คุ้มค่า ${mult} เท่าของค่าใช้จ่าย`,`${mult}× what you pay`)}</span></div>
+   <div class="roi-grid"><div><small>${t('MatchQueue เติมช่วงที่หลุดจอง','MatchQueue refilled cancellations')}</small><b>${baht(s.qfRev)}</b><span>${s.qfN} ${t('ครั้ง','slots')}</span></div>
+   <div><small>${t('DayMatch ช่วงกลางวัน','DayMatch daytime')}</small><b>${baht(s.dmRev)}</b><span>${s.dmN} ${t('ชั่วโมง','hrs')}</span></div>
+   <div><small>${t('ค่าคอมมิชชัน 7%','7% commission')}</small><b>-${baht(com)}</b><span>${t('หักเมื่อมีการจองจริง','only on real bookings')}</span></div>
+   <div><small>${t('ค่าสมาชิก','Subscription')}</small><b>฿0</b><span>${t(`ช่วงทดลอง (หลังจากนั้น ฿${sub})`,`trial (then ฿${sub})`)}</span></div></div>
+   <div class="note green">${ic('info',16)}<span>${t(`เห็นผลก่อนแล้วค่อยจ่าย: หลังหักค่าคอมมิชชันคุณได้ ${baht(net)} และแม้จ่ายค่าสมาชิกเต็มราคา BookMatch ยังนำรายได้มาให้ ${mult} เท่าของค่าใช้จ่าย`,`See results before you pay: after commission you keep ${baht(net)}, and even at the full subscription BookMatch brings in ${mult}× what it costs.`)}</span></div></div>`}
 function ownerSchedule(){
   const v=V(OWNER_V),d=UI.oDate;
   const cells=HOURS.map(h=>`<div class="gt">${hh(h)}</div>`+v.th.courts.map((_,c)=>{const o=oState(c,d,h);const past=d===TODAY&&h<=nowH();
@@ -550,21 +652,22 @@ function ownerSettings(){
    </div><div>
    <div class="card plan"><small>${t('แพ็กเกจปัจจุบัน','Current plan')}</small><h2 style="margin:2px 0 4px">BookMatch Pro</h2><p style="color:#D2EFDF">${t(`ทดลองใช้ฟรีถึง ${fmtDate(trialEnd)} จากนั้น ฿990/เดือน`,`Free trial until ${fmtDate(trialEnd)}, then ฿990/month`)}</p>
     <ul class="list" style="margin-top:8px"><li><span>${t('MatchQueue เติมสนามที่หลุดจอง','MatchQueue refills cancelled slots')}</span><span>${ic('check',16)}</span></li><li><span>${t('รายงานยอดจองและช่องทาง','Booking and channel reports')}</span><span>${ic('check',16)}</span></li><li><span>${t('บันทึกการจองหน้าสนามและโทร','Log walk-in and phone bookings')}</span><span>${ic('check',16)}</span></li></ul></div>
+   <div class="card"><button class="toggle" data-a="oToggle" data-k="daymatch" aria-pressed="${o.daymatch}"><div><h3>${t('DayMatch ลดราคาช่วงกลางวัน 20%','DayMatch: 20% off daytime')}</h3><div class="mut sm-t">${t('ช่วงก่อน 16:00 ลด 20% อัตโนมัติ เติมช่วงกลางวันที่มักว่าง ผู้เล่นเห็นป้าย DayMatch ในตาราง','Slots before 16:00 are 20% off automatically, to fill quiet daytime hours. Players see a DayMatch tag in the timetable.')}</div></div><span class="sw ${o.daymatch?'on':''}"></span></button></div>
    <div class="card"><button class="toggle" data-a="oToggle" data-k="boost" aria-pressed="${o.boost}"><div><h3>${t('Boost การมองเห็นสนาม','Boost visibility')}</h3><div class="mut sm-t">${t('ขึ้นเป็นอันดับแรกพร้อมป้าย "แนะนำ" ในแอปผู้เล่น ฿300/เดือน (ฟรีช่วงทดลอง)','Show first with a "Featured" tag in the player app. ฿300/month (free during the trial)')}</div></div><span class="sw ${o.boost?'on':''}"></span></button></div>
    <div class="card"><h3>${t('ยอดโอนรอบถัดไป','Next payout')}</h3><div class="row"><span class="mut">${t('ยอดจองผ่าน BookMatch เดือนนี้','BookMatch bookings this month')}</span><span>${baht(s.app)}</span></div><div class="row"><span class="mut">${t('ค่าคอมมิชชัน 7%','7% commission')}</span><span>-${baht(s.app*0.07)}</span></div><div class="row total"><span>${t('โอนเข้าบัญชีสนาม','Paid to your account')}</span><span>${baht(s.app*0.93)}</span></div><p class="mut" style="font-size:13px;margin-top:6px">${t('โอนทุกวันจันทร์ การจองหน้าสนามและโทรไม่มีค่าคอมมิชชัน','Paid every Monday. No commission on walk-in or phone bookings.')}</p></div>
    </div></div>`);
 }
 
 /* ============ router ============ */
-const VIEWS={home,map:mapView,venue:venueView,checkout,pay,success,bookings,notifs,matchtime,mtvenues:mtVenues,profile};
-const TABS=['home','map','matchtime','bookings','notifs','profile'];
+const VIEWS={home,map:mapView,venue:venueView,checkout,pay,success,bookings,notifs,matchtime,matchmake,mtvenues:mtVenues,profile};
+const TABS=['home','map','matchtime','matchmake','bookings','notifs','profile'];
 function destroyMaps(){if(MAP){MAP.remove();MAP=null}if(VMAP){VMAP.remove();VMAP=null}}
 function render(){
   destroyMaps();const app=$('#app');document.documentElement.lang=lg();
-  if(!D.auth){app.innerHTML=login();return save()}
-  if(UI.mode==='owner'){app.innerHTML={overview:ownerOverview,schedule:ownerSchedule,queue:ownerQueueView,settings:ownerSettings}[UI.oTab]();}
+  if(!D.auth){app.innerHTML=login()+cookieBar();return save()}
+  if(UI.mode==='owner'){app.innerHTML={overview:ownerOverview,schedule:ownerSchedule,queue:ownerQueueView,settings:ownerSettings}[UI.oTab]()+cookieBar();}
   else{if(!VIEWS[UI.view]||(['checkout','pay'].includes(UI.view)&&!UI.co))UI.view='home';
-    app.innerHTML=`${sidenav()}<main class="main">${VIEWS[UI.view]()}</main>${TABS.includes(UI.view)?tabbar():''}`;
+    app.innerHTML=`${sidenav()}<main class="main">${VIEWS[UI.view]()}</main>${TABS.includes(UI.view)?tabbar():''}${cookieBar()}`;
     if(UI.view==='notifs'){D.notifs.forEach(n=>n.read=true)}
     if(UI.view==='map')initMap();
     const vm=$('#vmap');if(vm&&window.L){VMAP=L.map(vm,{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false,attributionControl:false}).setView([+vm.dataset.lat,+vm.dataset.lng],15);L.tileLayer(TILES).addTo(VMAP);L.marker([+vm.dataset.lat,+vm.dataset.lng],{icon:L.divIcon({className:'apin',html:PINSVG,iconSize:[36,46],iconAnchor:[18,45]})}).addTo(VMAP)}}
@@ -616,9 +719,16 @@ function removeCourt(i){const fix=obj=>{const out={};Object.entries(obj).forEach
   D.walkins=fix(D.walkins);D.blocks=fix(D.blocks);D.released=fix(D.released);
   const shift=o=>{if(o&&o.venue===OWNER_V&&o.court>i){o.court--;if(o.key){const p=o.key.split('|');o.key=skey(p[0],o.court,p[2],p[3])}}};
   D.bookings.forEach(shift);D.queue.forEach(shift);D.done=D.done.filter(x=>!(x.venue===OWNER_V&&x.court===i));D.done.forEach(shift);if(D.pendingOffer&&D.pendingOffer.venue===OWNER_V)D.pendingOffer=null}
+function mmPostSheet(b){const v=V(b.venue),o=b.open||{n:2,level:2},open=!!(b.open&&b.open.n);UI.mmDraft={...o};
+  const draw=()=>openSheet(`<h2>${t('หาคนเพิ่มด้วย MatchMake','Find players with MatchMake')}</h2><div class="sub">${vName(v)} · ${court(v,b.court)} · ${fmtDate(b.date)} ${range(b.hours)}</div>
+   <div class="card"><b>${t('ต้องการผู้เล่นเพิ่ม','Players needed')}</b><div class="weeks">${[1,2,3,4,5].map(n=>`<button class="${UI.mmDraft.n===n?'on':''}" data-a="mmN" data-n="${n}">${n}</button>`).join('')}</div>
+   <b style="display:block;margin-top:14px">${t('ระดับ','Level')}</b><div class="weeks">${[1,2,3].map(l=>`<button class="${UI.mmDraft.level===l?'on':''}" data-a="mmL" data-l="${l}">${LEVEL[l][lg()]}</button>`).join('')}</div>
+   <div class="note">${ic('info',16)}<span>${t(`ผู้เล่นที่เข้าร่วมจ่ายคนละ ${baht(perHead(v,b.court,b.hours[0],NEED[v.sport]))} ผ่านแอป เงินส่วนนี้คืนให้คุณหลังเล่นเสร็จ ใช้ได้ทั้งหาคนเพิ่มและหาคนแทนเพื่อนที่ยกเลิก`,`Players who join pay ${baht(perHead(v,b.court,b.hours[0],NEED[v.sport]))} each in the app, refunded to you after the game. Works for extra players and for replacing a friend who dropped out.`)}</span></div></div>
+   <button class="btn block" data-a="mmDoPost" data-id="${b.id}">${open?t('อัปเดตการเปิดรับ','Update'):t('เปิดรับผู้เล่น','Open spots')}</button>${open?`<button class="btn ghost block" data-a="mmClose" data-id="${b.id}">${t('ปิดรับ','Close spots')}</button>`:''}`);
+  UI.mmRedraw=draw;draw()}
 const A={
   lang:()=>{D.lang=EN()?'th':'en';save();if($('#layer').innerHTML)closeSheet();keep(()=>{})},
-  login:d=>{D.auth=d.r;UI.mode=d.r;UI.view='home';UI.oTab='overview';hist=[];render();scrollTo(0,0)},
+  login:d=>{if(d.r==='player'){const el=$('#clubcode'),code=(el&&el.value||'').trim().toUpperCase();if(code){if(!/^[A-Z0-9]{3,12}$/.test(code))return toast(t('รหัสชมรมใช้ตัวอักษรอังกฤษหรือตัวเลข 3–12 ตัว','Club codes are 3–12 letters or numbers'));D.club=code;D.clubCredited=false;setTimeout(()=>toast(t(`ลงทะเบียนกับ${clubName(code)}แล้ว`,`Linked to ${clubName(code)}`)),300)}}D.auth=d.r;UI.mode=d.r;UI.view='home';UI.oTab='overview';hist=[];render();scrollTo(0,0)},
   logout:()=>{closeSheet();D.auth=null;UI.mode='player';render();scrollTo(0,0)},
   tab:d=>tab(d.t),back:()=>back(),closeSheet:()=>closeSheet(),
   sport:d=>keep(()=>UI.sport=d.s),
@@ -647,7 +757,7 @@ const A={
       else if(h===Math.min(...s.hours)-1||h===Math.max(...s.hours)+1){if(s.hours.length>=3)toast(t('เลือกต่อกันได้สูงสุด 3 ชม.','Up to 3 hours in a row'));else s.hours.push(h)}
       else UI.sel={court:c,hours:[h]};});
   },
-  toCheckout:()=>{if(!UI.sel)return;UI.co={venue:UI.venue,court:UI.sel.court,date:UI.date,hours:[...UI.sel.hours].sort((a,b)=>a-b),method:'promptpay'};go('checkout')},
+  toCheckout:()=>{if(!UI.sel)return;UI.co={split:true,venue:UI.venue,court:UI.sel.court,date:UI.date,hours:[...UI.sel.hours].sort((a,b)=>a-b),method:'promptpay'};go('checkout')},
   method:d=>keep(()=>UI.co.method=d.m),
   toPay:()=>{go('pay');if(UI.co.method==='promptpay'){let left=300;tick=setInterval(()=>{left--;const e=$('#cd');if(!e||left<=0){clearInterval(tick);tick=null;return}e.textContent=mmss(left)},1000)}},
   paid:()=>{if(tick){clearInterval(tick);tick=null}$('#paybody').innerHTML=`<div class="card" style="text-align:center;padding:40px 16px"><div class="spin"></div><h3>${t('กำลังยืนยันการชำระเงิน','Confirming payment')}</h3><p class="mut sm-t">${t('รอสักครู่','One moment')}</p></div>`;setTimeout(confirmBooking,1300)},
@@ -704,25 +814,61 @@ const A={
   doDelPitch:d=>{const i=+d.i;removeCourt(i);D.owner.pitches.splice(i,1);applyOwner();UI.sel=null;save();closeSheet();toast(t('ลบสนามแล้ว','Pitch removed'));keep(()=>{})},
   savePitches:()=>{if(!readPitches())return;applyOwner();UI.sel=null;save();toast(t(`บันทึก ${D.owner.pitches.length} สนามแล้ว แอปผู้เล่นเห็นทันที`,`Saved ${D.owner.pitches.length} pitches. Players see them straight away.`));keep(()=>{})},
   qmin:d=>keep(()=>D.owner.qmin=+d.m),
-  oToggle:d=>keep(()=>{D.owner[d.k]=!D.owner[d.k];toast(d.k==='boost'?(D.owner.boost?t('เปิด Boost แล้ว สนามขึ้นอันดับแรกในแอปผู้เล่น','Boost on: your venue now shows first'):t('ปิด Boost แล้ว','Boost off')):'')}),
+  oToggle:d=>keep(()=>{D.owner[d.k]=!D.owner[d.k];UI.sel=null;toast(d.k==='boost'?(D.owner.boost?t('เปิด Boost แล้ว สนามขึ้นอันดับแรกในแอปผู้เล่น','Boost on: your venue now shows first'):t('ปิด Boost แล้ว','Boost off')):(D.owner.daymatch?t('เปิด DayMatch แล้ว ช่วงก่อน 16:00 ลด 20%','DayMatch on: slots before 16:00 are 20% off'):t('ปิด DayMatch แล้ว','DayMatch off')))}),
   scope:()=>openSheet(`<h2>${t('ขอบเขตของต้นแบบ','Prototype scope')}</h2><div class="sub">${t('อ้างอิงตาราง MoSCoW ในรายงานหัวข้อ 2.5','Based on the MoSCoW table in report section 2.5')}</div><div class="card"><ul class="scope">
     <li><b style="color:var(--brand)">Must</b><span>${t('ตารางสนามและเวลาว่าง, การจอง, ชำระเงิน, แจ้งเตือน, ตารางจองของเจ้าของสนาม','Venue timetable and free times, booking, payment, notifications, owner schedule')}</span></li>
     <li><b style="color:var(--amber)">Should</b><span>MatchTime, MatchQueue, MatchPitch</span></li>
-    <li><b class="mut">${t('เพิ่มเติม','Extra')}</b><span>${t('ค้นหาตามพื้นที่ด้วยหมุดบนแผนที่, รีวิวและจองซ้ำ, Boost และแพ็กเกจสนาม, ภาษาไทย/อังกฤษ','Map pin area search, reviews and rebooking, Boost and venue plans, Thai/English')}</span></li>
-    <li><b class="mut">Could</b><span>${t('MatchMake, Tournament, Streak (ยังไม่ทำในต้นแบบ)','MatchMake, Tournament, Streak (not built)')}</span></li>
+    <li><b style="color:var(--blue)">Could</b><span>${t('MatchMake (เกมเปิดรับคน และหาคนแทน), Streak ของกลุ่ม (ทำแล้ว) · Tournament (ปีที่ 2 ยังไม่ทำ)','MatchMake (open games and replacements), group Streak (built) · Tournament (year 2, not built)')}</span></li>
+    <li><b class="mut">${t('แคมเปญ','Campaigns')}</b><span>${t('DayMatch ลด 20% ช่วงกลางวัน, BookMatch Jersey, BookMatch Affiliate, ส่วนลดจองครั้งแรก, หารค่าสนามผ่าน MatchTime','DayMatch 20% daytime discount, BookMatch Jersey, BookMatch Affiliate, first-booking discount, fee splitting via MatchTime')}</span></li>
+    <li><b class="mut">${t('เพิ่มเติม','Extra')}</b><span>${t('ค้นหาตามพื้นที่ด้วยหมุดบนแผนที่, รีวิวและจองซ้ำ, Boost และแพ็กเกจสนาม, รายได้ที่ BookMatch นำมาให้สนาม, แบนเนอร์คุกกี้ตาม PDPA, ภาษาไทย/อังกฤษ','Map pin search, reviews and rebooking, Boost and venue plans, revenue-brought card for owners, PDPA cookie banner, Thai/English')}</span></li>
     <li><b class="mut">Won't</b><span>MatchAnalysis</span></li></ul></div><div class="note">${ic('info',16)}<span>${t('ข้อมูลสนาม ลูกค้า และการชำระเงินเป็นข้อมูลสมมติทั้งหมด ไม่มีการตัดเงินจริง ตำแหน่งสนามบนแผนที่เป็นตำแหน่งสมมติ','All venues, customers and payments are fictional, no money is charged, and map locations are made up.')}</span></div><button class="btn ghost block" data-a="closeSheet">${t('ปิด','Close')}</button>`),
-  reset:()=>{closeSheet();const a=D.auth,l=D.lang;D=fresh();D.auth=a;D.lang=l;applyOwner();UI.invite=[];UI.sel=null;UI.sport='all';save();toast(t('รีเซ็ตข้อมูลแล้ว','Sample data reset'));tab('home')},
+  split:()=>keep(()=>UI.co.split=!UI.co.split),
+  mmSport:d=>keep(()=>UI.mmSport=d.s),
+  mmJoin:d=>{const g=openGames().find(x=>x.id===d.g);if(!g)return;const v=V(g.venue);
+    openSheet(`<h2>${t('เข้าร่วมเกมนี้?','Join this game?')}</h2><div class="sub">${vName(v)} · ${court(v,g.court)} · ${fmtLong(g.date)} · ${range([g.h])}</div>
+     <div class="card"><div class="row"><span class="mut">${t('จัดโดย','Host')}</span><span>${nameAt(g.host)}</span></div><div class="row"><span class="mut">${t('ระดับ','Level')}</span><span>${LEVEL[g.level][lg()]}</span></div><div class="row"><span class="mut">${t('ผู้เล่น','Players')}</span><span>${g.have}/${g.N}</span></div><div class="row total"><span>${t('จ่ายส่วนของคุณ','Your share')}</span><span>${baht(g.price)}</span></div></div>
+     <div class="note">${ic('shield',16)}<span>${t('ชำระด้วย PromptPay ออกจากเกมได้ถึง 24 ชม. ก่อนเวลาเล่น คืนเงินเต็มจำนวน','Pay with PromptPay. Leave up to 24 hrs before play for a full refund.')}</span></div>
+     <button class="btn block" data-a="mmPay" data-g="${g.id}">${t('จ่ายและเข้าร่วม','Pay and join')} ${baht(g.price)}</button><button class="btn ghost block" data-a="closeSheet">${t('ยังก่อน','Not now')}</button>`)},
+  mmPay:d=>{const g=openGames().find(x=>x.id===d.g);if(!g||D.joined.some(j=>j.gid===g.id))return closeSheet();
+    D.joined.push({gid:g.id,venue:g.venue,court:g.court,date:g.date,h:g.h,level:g.level,paid:g.price,at:Date.now()});closeSheet();notify('joined',{v:g.venue,d:g.date,h:g.h,x:g.price});keep(()=>{})},
+  mmLeave:d=>{const j=D.joined.find(x=>x.gid===d.g);if(!j)return;if(!canCancel(j.date,[j.h]))return toast(t('ออกไม่ได้ เหลือเวลาไม่ถึง 24 ชม. ก่อนเวลาเล่น','Cannot leave: play starts in under 24 hrs'));
+    D.joined=D.joined.filter(x=>x!==j);notify('left',{x:j.paid});keep(()=>{})},
+  mmPost:d=>{const b=D.bookings.find(x=>x.id===d.id);if(b)mmPostSheet(b)},
+  mmN:d=>{UI.mmDraft.n=+d.n;UI.mmRedraw()},
+  mmL:d=>{UI.mmDraft.level=+d.l;UI.mmRedraw()},
+  mmDoPost:d=>{const b=D.bookings.find(x=>x.id===d.id);b.open={...UI.mmDraft};closeSheet();notify('mmPosted',{v:b.venue,d:b.date,h:b.hours[0],n:b.open.n});keep(()=>{})},
+  mmClose:d=>{const b=D.bookings.find(x=>x.id===d.id);if(b)delete b.open;closeSheet();toast(t('ปิดรับผู้เล่นแล้ว','Spots closed'));keep(()=>{})},
+  mmSimJoin:d=>{const b=D.bookings.find(x=>x.id===d.id);if(!b||!b.open)return;b.open.n--;const who=hash(b.id+b.open.n);notify('mmJoin',{n:b.open.n,who});if(!b.open.n)delete b.open;keep(()=>{})},
+  shareStreak:()=>toast(t('คัดลอกลิงก์ Streak ไปแชร์ในกลุ่ม Facebook แล้ว','Streak link copied for your Facebook group')),
+  jersey:()=>{const n=jerseyCount(),done=n>=JERSEY_GOAL;UI.jsize=UI.jsize||'M';
+    const draw=()=>openSheet(`<h2>BookMatch Jersey</h2><div class="sub">MU Football x BookMatch x MU Jerseys</div><div class="card" style="text-align:center">${SHIRT.replace('class="shirt"','class="shirt big"')}</div>
+     <div class="card"><div class="row"><span class="mut">${t('ราคาปกติ','Usual price')}</span><span style="text-decoration:line-through">฿400</span></div><div class="row total"><span>${t('ราคาสมาชิกที่จองครบ 10 ครั้ง','Price after 10 bookings')}</span><span>฿200</span></div>
+     ${D.jerseyOrdered?`<p class="sm-t" style="margin-top:8px">${t(`สั่งแล้ว ไซซ์ ${D.jerseyOrdered} รับได้ที่บูธ MU Jerseys`,`Ordered, size ${D.jerseyOrdered}. Collect at the MU Jerseys stand.`)}</p>`:`<b style="display:block;margin-top:12px">${t('ไซซ์','Size')}</b><div class="weeks">${['S','M','L','XL'].map(z=>`<button class="${UI.jsize===z?'on':''}" data-a="jsize" data-z="${z}">${z}</button>`).join('')}</div>`}</div>
+     ${D.jerseyOrdered?'':done?`<button class="btn block" data-a="jbuy">${t('สั่งซื้อ ฿200','Buy for ฿200')}</button>`:`<button class="btn block" disabled>${t(`จองอีก ${JERSEY_GOAL-n} ครั้งเพื่อปลดล็อก`,`${JERSEY_GOAL-n} more bookings to unlock`)}</button>`}<button class="btn ghost block" data-a="closeSheet">${t('ปิด','Close')}</button>`);
+    UI.jdraw=draw;draw()},
+  jsize:d=>{UI.jsize=d.z;UI.jdraw()},
+  jbuy:()=>{D.jerseyOrdered=UI.jsize;closeSheet();notify('jersey',{s:UI.jsize});keep(()=>{})},
+  club:()=>{if(D.club)return toast(t(`ลงทะเบียนกับ${clubName(D.club)}แล้ว`,`Linked to ${clubName(D.club)}`));
+    openSheet(`<h2>BookMatch Affiliate</h2><div class="sub">${t('ใส่รหัสชมรมได้ก่อนจองครั้งแรก ชมรมได้เครดิต 20 บาท','Add your club code before your first booking and your club gets ฿20')}</div><label class="field"><span>${t('รหัสชมรม','Club code')}</span><input id="clubcode2" placeholder="ICTFC" maxlength="12" style="text-transform:uppercase"></label><button class="btn block" data-a="clubSave">${t('บันทึก','Save')}</button>`)},
+  clubSave:()=>{const code=(($('#clubcode2')||{}).value||'').trim().toUpperCase();if(!/^[A-Z0-9]{3,12}$/.test(code))return toast(t('รหัสชมรมใช้ตัวอักษรอังกฤษหรือตัวเลข 3–12 ตัว','Club codes are 3–12 letters or numbers'));if(D.firstUsed)return toast(t('ใส่รหัสได้ก่อนจองครั้งแรกเท่านั้น','Codes only work before your first booking'));D.club=code;D.clubCredited=false;closeSheet();toast(t(`ลงทะเบียนกับ${clubName(code)}แล้ว`,`Linked to ${clubName(code)}`));keep(()=>{})},
+  ckAll:()=>{D.cookie={analytics:true,marketing:true,at:Date.now()};closeSheet();keep(()=>{})},
+  ckNec:()=>{D.cookie={analytics:false,marketing:false,at:Date.now()};closeSheet();keep(()=>{})},
+  ckSet:()=>{UI.ck={analytics:!!(D.cookie&&D.cookie.analytics),marketing:!!(D.cookie&&D.cookie.marketing)};ckSheet()},
+  ckTog:d=>{UI.ck[d.k]=!UI.ck[d.k];ckSheet()},
+  ckSave:()=>{D.cookie={...UI.ck,at:Date.now()};closeSheet();toast(t('บันทึกการตั้งค่าคุกกี้แล้ว','Cookie settings saved'));keep(()=>{})},
+  reset:()=>{closeSheet();const a=D.auth,l=D.lang,ck=D.cookie,cl=D.club;D=fresh();D.auth=a;D.lang=l;D.cookie=ck;D.club=cl;applyOwner();UI.invite=[];UI.sel=null;UI.sport='all';save();toast(t('รีเซ็ตข้อมูลแล้ว','Sample data reset'));tab('home')},
 };
 function confirmBooking(){
-  const c=UI.co,{per,disc}=coAmounts();
+  const c=UI.co,{total,players,today}=coAmounts();
   const id='BM-'+(hash(Date.now()+'')%9000+1000)+String.fromCharCode(65+hash(c.venue)%26);
-  const b={id,venue:c.venue,court:c.court,date:c.date,hours:c.hours,paid:per-disc,invite:[...UI.invite],created:Date.now()};
+  const b={id,venue:c.venue,court:c.court,date:c.date,hours:c.hours,paid:today,total,split:players>1?players:0,invite:[...UI.invite],created:Date.now()};
   D.bookings.push(b);D.firstUsed=true;D.queue=D.queue.filter(q=>!(q.venue===c.venue&&q.court===c.court&&q.date===c.date&&c.hours.includes(q.h)));
   c.hours.forEach(h=>delete D.released[skey(c.venue,c.court,c.date,h)]);
   UI.last={...b,elapsed:UI.timer?Math.round((Date.now()-UI.timer)/1000):null};UI.timer=null;UI.co=null;
   hist=[];UI.view='success';render();scrollTo(0,0);
   notify('booked',{v:c.venue,c:c.court,d:c.date,h:c.hours,id});
-  if(b.invite.length){D.notifs.unshift({id:Date.now()+1,k:'invite',p:{f:b.invite},at:Date.now(),read:false});save()}
+  if(b.invite.length){D.notifs.unshift({id:Date.now()+1,k:'invite',p:{f:b.invite,s:b.split?today:0},at:Date.now(),read:false});save()}
+  if(D.club&&!D.clubCredited){D.clubCredited=true;D.notifs.unshift({id:Date.now()+2,k:'club',p:{c:D.club},at:Date.now(),read:false});save()}
   UI.invite=[];
 }
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el||el.disabled)return;const f=A[el.dataset.a];if(f){e.preventDefault();e.stopPropagation();f(el.dataset,el)}});

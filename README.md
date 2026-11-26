@@ -60,7 +60,15 @@ Calibri everywhere. Carlito, Calibri's metric-compatible twin on Google Fonts, i
 | Extra | Login, history, reviews, rebook | Login screen; การจอง → ที่ผ่านมา → ให้คะแนน / จองอีกครั้ง |
 | Extra | Pitch management | Owner → ตั้งค่าและแพ็กเกจ: add (up to 6), rename and remove pitches, each with its own type (5/7/11-a-side) and hourly price; the player timetable, prices and checkout follow |
 | Extra | Owner settings and revenue model | ตั้งค่าและแพ็กเกจ: Pro plan ฿990/month after a free trial, Boost ฿300/month, 7% commission in the payout |
-| Could / Won't | MatchMake, Tournament, Streak, MatchAnalysis | Not built |
+| Could | MatchMake | นัดเล่น → MatchMake: open games for the next 7 days, join and pay only your share; from a booking card, open spots to find extra or replacement players |
+| Could | Group Streak | MatchTime and Profile: weeks in a row the group has played (week = Sun–Sat), with a share button |
+| Campaign | DayMatch (3.6, campaign 4) | Owner toggle; slots before 16:00 are 20% off, tagged in the timetable and venue card, applied at checkout |
+| Campaign | BookMatch Jersey (campaign 2) | Profile and confirmation: x/10 bookings progress, then buy the shirt for ฿200 (usually ฿400) |
+| Campaign | BookMatch Affiliate (campaign 3) | Club code at sign-up (e.g. ICTFC); the club gets ฿20 credit on the member's first booking |
+| Risk 4.11 | Split the pitch fee | Checkout after MatchTime: split between you and invited friends; you pay your share, friends pay from the invite link |
+| Owner | Revenue BookMatch brought you | Owner overview: app revenue, MatchQueue refills, DayMatch revenue, commission and subscription, with a cost multiple |
+| PDPA (3.10, 5.5) | Cookie consent | Banner on first visit (accept all / essential only / settings); change any time in Profile |
+| Won't | Tournament, MatchAnalysis | Not built |
 
 ## Usability test (report 5.5)
 
